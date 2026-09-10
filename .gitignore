@@ -1,0 +1,17 @@
+node_modules
+.env
+.env.*
+!.env.example
+dist
+build
+out
+*.apk
+*.aab
+*.log
+.vite
+.DS_Store
+.turbo
+coverage
+.playwright
+playwright-report
+test-results

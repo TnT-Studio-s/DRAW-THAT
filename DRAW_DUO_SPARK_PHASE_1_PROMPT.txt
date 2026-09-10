@@ -1,0 +1,28 @@
+Use this planning pack to implement Phase 1 of Draw Duo in the selected new project.
+Read START_HERE.md, the repository's existing AGENTS.md if present, and
+docs/plans/phase-01.md with its required specs. Follow docs/plans/MASTER_PLAN.md
+where details are needed. Inspect the actual working directory and preserve unrelated work.
+
+I have selected GPT-5.3 Codex Spark. Confirm the active model from available session
+status; do not silently switch models or launch stronger-model subagents.
+
+Complete the ENTIRE Phase 1 playable outcome, not only the scaffold or first task:
+React + TypeScript + Canvas client, real Colyseus two-player server, friend-code
+joining, three private 1/2/3 choices, live strokes, letter tiles, server timers,
+equal personal coins, shared streak, eight alternating turns, results and rematch.
+
+Work in bounded internal changes but continue through the phase without asking me
+to authorize each module. Run the specified real tests. Default to headless tools;
+do not open browser/Electron windows, move my mouse, or start fullscreen testing.
+
+Keep all platforms on the same future backend/protocol. No Unity, React Native,
+ads, paid services, public deployment, unrelated repo edits, or remote pushes.
+
+Maintain docs/STATUS.md, docs/HANDOFF.md and docs/TEST_MATRIX.md. If the same failure
+survives two evidence-based fix/test cycles, isolate it and write a focused review
+packet; complete other safe Phase 1 work rather than making speculative rewrites.
+If session/context ends, leave exact progress and the next command. Never claim
+that an unrun test or missing native-device gate passed.
+
+Stop after Phase 1 with the playable result, real test evidence, remaining blockers,
+and exact launch/verify commands. Do not stop merely because one internal task ended.

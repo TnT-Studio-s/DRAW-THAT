@@ -1,0 +1,48 @@
+{
+  "name": "draw-duo",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "doctor": "node scripts/doctor.js",
+    "dev:headless": "npm run -w apps/server dev & npm run -w apps/web dev -- --host 127.0.0.1 --port 5173",
+    "dev:desktop": "npm run build:web && npm run -w @drawduo/desktop dev",
+    "dev:mobile": "npm run build:web && node scripts/android.js sync",
+    "lint": "npm run -ws lint",
+    "typecheck": "npm run -ws typecheck",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:e2e": "node scripts/test-e2e.js",
+    "test:security": "vitest run tests/security",
+    "build:web": "npm run -w apps/web build",
+    "build:server": "npm run -w apps/server build",
+    "build:windows": "node scripts/build-windows.js",
+    "android:sync": "node scripts/android.js sync",
+    "db:migrate": "node scripts/migrate.js",
+    "build:android:debug": "node scripts/android.js debug",
+    "build:android:release": "node scripts/android.js release",
+    "test:desktop": "node scripts/test-desktop.js",
+    "test:android": "node scripts/test-android.js",
+    "test:load": "echo 'Load tests not configured in Phase 1'",
+    "verify": "node scripts/verify.js",
+    "create-agents": "if not exist AGENTS.md copy AGENTS.template.md AGENTS.md"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.1",
+    "@types/cors": "^2.8.19",
+    "@vitejs/plugin-react": "^4.5.10",
+    "eslint": "^9.36.0",
+    "playwright": "^1.50.1",
+    "typescript": "^5.8.2",
+    "vite": "^6.0.4",
+    "vitest": "^3.2.4",
+    "electron": "44.3.0",
+    "@electron-forge/cli": "7.11.2",
+    "@electron-forge/maker-squirrel": "7.11.2",
+    "@capacitor/cli": "8.5.1"
+  }
+}
