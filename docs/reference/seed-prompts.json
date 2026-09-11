@@ -1,5 +1,5 @@
 {
-  "usage": "Development candidates only. Not human-approved or production-enabled. Keep server-side.",
+  "usage": "Development candidates only. Not human-approved or production-enabled. Keep server-side. This bundle contains 50 candidates for each difficulty.",
   "prompts": [
     {
       "id": "seed-en-1-001",
@@ -13,7 +13,7 @@
     {
       "id": "seed-en-1-002",
       "language": "en",
-      "canonicalAnswer": "tree",
+      "canonicalAnswer": "house",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -22,7 +22,7 @@
     {
       "id": "seed-en-1-003",
       "language": "en",
-      "canonicalAnswer": "house",
+      "canonicalAnswer": "moon",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -31,7 +31,7 @@
     {
       "id": "seed-en-1-004",
       "language": "en",
-      "canonicalAnswer": "sun",
+      "canonicalAnswer": "fish",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -40,7 +40,7 @@
     {
       "id": "seed-en-1-005",
       "language": "en",
-      "canonicalAnswer": "moon",
+      "canonicalAnswer": "boat",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -49,7 +49,7 @@
     {
       "id": "seed-en-1-006",
       "language": "en",
-      "canonicalAnswer": "star",
+      "canonicalAnswer": "flower",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -58,7 +58,7 @@
     {
       "id": "seed-en-1-007",
       "language": "en",
-      "canonicalAnswer": "fish",
+      "canonicalAnswer": "book",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -67,7 +67,7 @@
     {
       "id": "seed-en-1-008",
       "language": "en",
-      "canonicalAnswer": "cat",
+      "canonicalAnswer": "chair",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -76,7 +76,7 @@
     {
       "id": "seed-en-1-009",
       "language": "en",
-      "canonicalAnswer": "dog",
+      "canonicalAnswer": "fork",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -85,7 +85,7 @@
     {
       "id": "seed-en-1-010",
       "language": "en",
-      "canonicalAnswer": "car",
+      "canonicalAnswer": "shoe",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -94,7 +94,7 @@
     {
       "id": "seed-en-1-011",
       "language": "en",
-      "canonicalAnswer": "boat",
+      "canonicalAnswer": "ball",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -103,7 +103,7 @@
     {
       "id": "seed-en-1-012",
       "language": "en",
-      "canonicalAnswer": "flower",
+      "canonicalAnswer": "balloon",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -112,7 +112,7 @@
     {
       "id": "seed-en-1-013",
       "language": "en",
-      "canonicalAnswer": "book",
+      "canonicalAnswer": "banana",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -121,7 +121,7 @@
     {
       "id": "seed-en-1-014",
       "language": "en",
-      "canonicalAnswer": "chair",
+      "canonicalAnswer": "pizza",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -130,7 +130,7 @@
     {
       "id": "seed-en-1-015",
       "language": "en",
-      "canonicalAnswer": "cup",
+      "canonicalAnswer": "cake",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -139,7 +139,7 @@
     {
       "id": "seed-en-1-016",
       "language": "en",
-      "canonicalAnswer": "spoon",
+      "canonicalAnswer": "leaf",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -148,7 +148,7 @@
     {
       "id": "seed-en-1-017",
       "language": "en",
-      "canonicalAnswer": "fork",
+      "canonicalAnswer": "cloud",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -157,7 +157,7 @@
     {
       "id": "seed-en-1-018",
       "language": "en",
-      "canonicalAnswer": "key",
+      "canonicalAnswer": "rain",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -166,7 +166,7 @@
     {
       "id": "seed-en-1-019",
       "language": "en",
-      "canonicalAnswer": "bed",
+      "canonicalAnswer": "snow",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -175,7 +175,7 @@
     {
       "id": "seed-en-1-020",
       "language": "en",
-      "canonicalAnswer": "hat",
+      "canonicalAnswer": "river",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -184,7 +184,7 @@
     {
       "id": "seed-en-1-021",
       "language": "en",
-      "canonicalAnswer": "shoe",
+      "canonicalAnswer": "ocean",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -193,7 +193,7 @@
     {
       "id": "seed-en-1-022",
       "language": "en",
-      "canonicalAnswer": "ball",
+      "canonicalAnswer": "grass",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -202,7 +202,7 @@
     {
       "id": "seed-en-1-023",
       "language": "en",
-      "canonicalAnswer": "balloon",
+      "canonicalAnswer": "plant",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -211,7 +211,7 @@
     {
       "id": "seed-en-1-024",
       "language": "en",
-      "canonicalAnswer": "banana",
+      "canonicalAnswer": "rock",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -220,7 +220,7 @@
     {
       "id": "seed-en-1-025",
       "language": "en",
-      "canonicalAnswer": "pizza",
+      "canonicalAnswer": "shell",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -229,7 +229,7 @@
     {
       "id": "seed-en-1-026",
       "language": "en",
-      "canonicalAnswer": "cake",
+      "canonicalAnswer": "wave",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -238,7 +238,7 @@
     {
       "id": "seed-en-1-027",
       "language": "en",
-      "canonicalAnswer": "eye",
+      "canonicalAnswer": "smile",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -247,7 +247,7 @@
     {
       "id": "seed-en-1-028",
       "language": "en",
-      "canonicalAnswer": "hand",
+      "canonicalAnswer": "thumb",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -256,7 +256,7 @@
     {
       "id": "seed-en-1-029",
       "language": "en",
-      "canonicalAnswer": "leaf",
+      "canonicalAnswer": "tooth",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -265,7 +265,187 @@
     {
       "id": "seed-en-1-030",
       "language": "en",
-      "canonicalAnswer": "heart",
+      "canonicalAnswer": "face",
+      "difficulty": 1,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-1-031",
+      "language": "en",
+      "canonicalAnswer": "nose",
+      "difficulty": 1,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-1-032",
+      "language": "en",
+      "canonicalAnswer": "eyes",
+      "difficulty": 1,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-1-033",
+      "language": "en",
+      "canonicalAnswer": "robot",
+      "difficulty": 1,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-1-034",
+      "language": "en",
+      "canonicalAnswer": "ghost",
+      "difficulty": 1,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-1-035",
+      "language": "en",
+      "canonicalAnswer": "crown",
+      "difficulty": 1,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-1-036",
+      "language": "en",
+      "canonicalAnswer": "drum",
+      "difficulty": 1,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-1-037",
+      "language": "en",
+      "canonicalAnswer": "kite",
+      "difficulty": 1,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-1-038",
+      "language": "en",
+      "canonicalAnswer": "train",
+      "difficulty": 1,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-1-039",
+      "language": "en",
+      "canonicalAnswer": "truck",
+      "difficulty": 1,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-1-040",
+      "language": "en",
+      "canonicalAnswer": "plane",
+      "difficulty": 1,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-1-041",
+      "language": "en",
+      "canonicalAnswer": "clock",
+      "difficulty": 1,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-1-042",
+      "language": "en",
+      "canonicalAnswer": "lamp",
+      "difficulty": 1,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-1-043",
+      "language": "en",
+      "canonicalAnswer": "phone",
+      "difficulty": 1,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-1-044",
+      "language": "en",
+      "canonicalAnswer": "table",
+      "difficulty": 1,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-1-045",
+      "language": "en",
+      "canonicalAnswer": "ladder",
+      "difficulty": 1,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-1-046",
+      "language": "en",
+      "canonicalAnswer": "candle",
+      "difficulty": 1,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-1-047",
+      "language": "en",
+      "canonicalAnswer": "camera",
+      "difficulty": 1,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-1-048",
+      "language": "en",
+      "canonicalAnswer": "bridge",
+      "difficulty": 1,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-1-049",
+      "language": "en",
+      "canonicalAnswer": "rainbow",
+      "difficulty": 1,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-1-050",
+      "language": "en",
+      "canonicalAnswer": "sandwich",
       "difficulty": 1,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -463,7 +643,7 @@
     {
       "id": "seed-en-2-022",
       "language": "en",
-      "canonicalAnswer": "frying pan",
+      "canonicalAnswer": "suitcase",
       "difficulty": 2,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -472,7 +652,7 @@
     {
       "id": "seed-en-2-023",
       "language": "en",
-      "canonicalAnswer": "traffic light",
+      "canonicalAnswer": "birdhouse",
       "difficulty": 2,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -542,6 +722,186 @@
       "contentVersion": "development-seed-v1"
     },
     {
+      "id": "seed-en-2-031",
+      "language": "en",
+      "canonicalAnswer": "mailbox",
+      "difficulty": 2,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-2-032",
+      "language": "en",
+      "canonicalAnswer": "skateboard",
+      "difficulty": 2,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-2-033",
+      "language": "en",
+      "canonicalAnswer": "campfire",
+      "difficulty": 2,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-2-034",
+      "language": "en",
+      "canonicalAnswer": "fire hydrant",
+      "difficulty": 2,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-2-035",
+      "language": "en",
+      "canonicalAnswer": "pirate ship",
+      "difficulty": 2,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-2-036",
+      "language": "en",
+      "canonicalAnswer": "rocket ship",
+      "difficulty": 2,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-2-037",
+      "language": "en",
+      "canonicalAnswer": "popcorn",
+      "difficulty": 2,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-2-038",
+      "language": "en",
+      "canonicalAnswer": "aquarium",
+      "difficulty": 2,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-2-039",
+      "language": "en",
+      "canonicalAnswer": "snow globe",
+      "difficulty": 2,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-2-040",
+      "language": "en",
+      "canonicalAnswer": "toolbox",
+      "difficulty": 2,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-2-041",
+      "language": "en",
+      "canonicalAnswer": "lawnmower",
+      "difficulty": 2,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-2-042",
+      "language": "en",
+      "canonicalAnswer": "police badge",
+      "difficulty": 2,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-2-043",
+      "language": "en",
+      "canonicalAnswer": "music note",
+      "difficulty": 2,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-2-044",
+      "language": "en",
+      "canonicalAnswer": "garden gnome",
+      "difficulty": 2,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-2-045",
+      "language": "en",
+      "canonicalAnswer": "fishing rod",
+      "difficulty": 2,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-2-046",
+      "language": "en",
+      "canonicalAnswer": "coffee mug",
+      "difficulty": 2,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-2-047",
+      "language": "en",
+      "canonicalAnswer": "raincoat",
+      "difficulty": 2,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-2-048",
+      "language": "en",
+      "canonicalAnswer": "typewriter",
+      "difficulty": 2,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-2-049",
+      "language": "en",
+      "canonicalAnswer": "parrot",
+      "difficulty": 2,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-2-050",
+      "language": "en",
+      "canonicalAnswer": "sailboat",
+      "difficulty": 2,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
       "id": "seed-en-3-001",
       "language": "en",
       "canonicalAnswer": "traffic jam",
@@ -580,7 +940,7 @@
     {
       "id": "seed-en-3-005",
       "language": "en",
-      "canonicalAnswer": "tightrope walker",
+      "canonicalAnswer": "walk the dog",
       "difficulty": 3,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -589,7 +949,7 @@
     {
       "id": "seed-en-3-006",
       "language": "en",
-      "canonicalAnswer": "walking the dog",
+      "canonicalAnswer": "building a house",
       "difficulty": 3,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -598,7 +958,7 @@
     {
       "id": "seed-en-3-007",
       "language": "en",
-      "canonicalAnswer": "building a house",
+      "canonicalAnswer": "birthday wish",
       "difficulty": 3,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -607,7 +967,7 @@
     {
       "id": "seed-en-3-008",
       "language": "en",
-      "canonicalAnswer": "birthday wish",
+      "canonicalAnswer": "moonwalk",
       "difficulty": 3,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -616,7 +976,7 @@
     {
       "id": "seed-en-3-009",
       "language": "en",
-      "canonicalAnswer": "moonwalk",
+      "canonicalAnswer": "banana slip",
       "difficulty": 3,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -625,7 +985,7 @@
     {
       "id": "seed-en-3-010",
       "language": "en",
-      "canonicalAnswer": "banana slip",
+      "canonicalAnswer": "missed bus",
       "difficulty": 3,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -634,7 +994,7 @@
     {
       "id": "seed-en-3-011",
       "language": "en",
-      "canonicalAnswer": "missed bus",
+      "canonicalAnswer": "sleepwalking",
       "difficulty": 3,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -643,7 +1003,7 @@
     {
       "id": "seed-en-3-012",
       "language": "en",
-      "canonicalAnswer": "butterfly chase",
+      "canonicalAnswer": "lifting weights",
       "difficulty": 3,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -652,7 +1012,7 @@
     {
       "id": "seed-en-3-013",
       "language": "en",
-      "canonicalAnswer": "sleepwalking",
+      "canonicalAnswer": "mirror image",
       "difficulty": 3,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -661,7 +1021,7 @@
     {
       "id": "seed-en-3-014",
       "language": "en",
-      "canonicalAnswer": "catching a cold",
+      "canonicalAnswer": "flying a kite",
       "difficulty": 3,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -670,7 +1030,7 @@
     {
       "id": "seed-en-3-015",
       "language": "en",
-      "canonicalAnswer": "lifting weights",
+      "canonicalAnswer": "sinking ship",
       "difficulty": 3,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -679,7 +1039,7 @@
     {
       "id": "seed-en-3-016",
       "language": "en",
-      "canonicalAnswer": "maze escape",
+      "canonicalAnswer": "winning a race",
       "difficulty": 3,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -688,7 +1048,7 @@
     {
       "id": "seed-en-3-017",
       "language": "en",
-      "canonicalAnswer": "mirror image",
+      "canonicalAnswer": "surprise party",
       "difficulty": 3,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -697,7 +1057,7 @@
     {
       "id": "seed-en-3-018",
       "language": "en",
-      "canonicalAnswer": "flying a kite",
+      "canonicalAnswer": "food fight",
       "difficulty": 3,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -706,7 +1066,7 @@
     {
       "id": "seed-en-3-019",
       "language": "en",
-      "canonicalAnswer": "sinking ship",
+      "canonicalAnswer": "hopscotch",
       "difficulty": 3,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -715,7 +1075,7 @@
     {
       "id": "seed-en-3-020",
       "language": "en",
-      "canonicalAnswer": "broken elevator",
+      "canonicalAnswer": "river crossing",
       "difficulty": 3,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -724,7 +1084,7 @@
     {
       "id": "seed-en-3-021",
       "language": "en",
-      "canonicalAnswer": "winning a race",
+      "canonicalAnswer": "treasure hunt",
       "difficulty": 3,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -733,7 +1093,7 @@
     {
       "id": "seed-en-3-022",
       "language": "en",
-      "canonicalAnswer": "surprise party",
+      "canonicalAnswer": "melting ice cream",
       "difficulty": 3,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -742,7 +1102,7 @@
     {
       "id": "seed-en-3-023",
       "language": "en",
-      "canonicalAnswer": "food fight",
+      "canonicalAnswer": "snowball fight",
       "difficulty": 3,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -751,7 +1111,7 @@
     {
       "id": "seed-en-3-024",
       "language": "en",
-      "canonicalAnswer": "hopscotch",
+      "canonicalAnswer": "pizza delivery",
       "difficulty": 3,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -760,7 +1120,7 @@
     {
       "id": "seed-en-3-025",
       "language": "en",
-      "canonicalAnswer": "river crossing",
+      "canonicalAnswer": "juggling",
       "difficulty": 3,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -769,7 +1129,7 @@
     {
       "id": "seed-en-3-026",
       "language": "en",
-      "canonicalAnswer": "treasure hunt",
+      "canonicalAnswer": "missing a train",
       "difficulty": 3,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -778,7 +1138,7 @@
     {
       "id": "seed-en-3-027",
       "language": "en",
-      "canonicalAnswer": "melting ice cream",
+      "canonicalAnswer": "slipping on ice",
       "difficulty": 3,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -787,7 +1147,7 @@
     {
       "id": "seed-en-3-028",
       "language": "en",
-      "canonicalAnswer": "snowball fight",
+      "canonicalAnswer": "lost in a maze",
       "difficulty": 3,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -796,7 +1156,7 @@
     {
       "id": "seed-en-3-029",
       "language": "en",
-      "canonicalAnswer": "headwind",
+      "canonicalAnswer": "monster under bed",
       "difficulty": 3,
       "reviewStatus": "candidate",
       "enabled": false,
@@ -805,7 +1165,187 @@
     {
       "id": "seed-en-3-030",
       "language": "en",
-      "canonicalAnswer": "pizza delivery",
+      "canonicalAnswer": "secret agent",
+      "difficulty": 3,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-3-031",
+      "language": "en",
+      "canonicalAnswer": "falling bookshelf",
+      "difficulty": 3,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-3-032",
+      "language": "en",
+      "canonicalAnswer": "lost wallet",
+      "difficulty": 3,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-3-033",
+      "language": "en",
+      "canonicalAnswer": "winning jackpot",
+      "difficulty": 3,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-3-034",
+      "language": "en",
+      "canonicalAnswer": "crossing a bridge",
+      "difficulty": 3,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-3-035",
+      "language": "en",
+      "canonicalAnswer": "magic trick",
+      "difficulty": 3,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-3-036",
+      "language": "en",
+      "canonicalAnswer": "driving",
+      "difficulty": 3,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-3-037",
+      "language": "en",
+      "canonicalAnswer": "falling off a bike",
+      "difficulty": 3,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-3-038",
+      "language": "en",
+      "canonicalAnswer": "army",
+      "difficulty": 3,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-3-039",
+      "language": "en",
+      "canonicalAnswer": "painting",
+      "difficulty": 3,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-3-040",
+      "language": "en",
+      "canonicalAnswer": "catching a fish",
+      "difficulty": 3,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-3-041",
+      "language": "en",
+      "canonicalAnswer": "playing drums",
+      "difficulty": 3,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-3-042",
+      "language": "en",
+      "canonicalAnswer": "surprise gift",
+      "difficulty": 3,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-3-043",
+      "language": "en",
+      "canonicalAnswer": "farming",
+      "difficulty": 3,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-3-044",
+      "language": "en",
+      "canonicalAnswer": "frozen in place",
+      "difficulty": 3,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-3-045",
+      "language": "en",
+      "canonicalAnswer": "pushing a boulder",
+      "difficulty": 3,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-3-046",
+      "language": "en",
+      "canonicalAnswer": "hurricane",
+      "difficulty": 3,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-3-047",
+      "language": "en",
+      "canonicalAnswer": "climbing a ladder",
+      "difficulty": 3,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-3-048",
+      "language": "en",
+      "canonicalAnswer": "jumping puddles",
+      "difficulty": 3,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-3-049",
+      "language": "en",
+      "canonicalAnswer": "singing",
+      "difficulty": 3,
+      "reviewStatus": "candidate",
+      "enabled": false,
+      "contentVersion": "development-seed-v1"
+    },
+    {
+      "id": "seed-en-3-050",
+      "language": "en",
+      "canonicalAnswer": "flying a plane",
       "difficulty": 3,
       "reviewStatus": "candidate",
       "enabled": false,
