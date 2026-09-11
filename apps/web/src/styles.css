@@ -347,6 +347,19 @@ h1 {
   box-shadow: 0 5px 0 #23449a;
 }
 
+.preview-switch-button {
+  min-height: 2.15rem;
+  padding: 0.28rem 0.5rem;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  border-radius: 11px;
+  background: linear-gradient(180deg, #5a8cff, #315ed0);
+  box-shadow: 0 3px 0 #23449a;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
 .invite-entry {
   margin-top: 0.8rem;
 }
