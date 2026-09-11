@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent, type ReactNode, type RefObject } from 'react'
 import { Client, Room } from 'colyseus.js'
 import {
   type ServerMessage,
@@ -19,7 +19,8 @@ import {
   type CosmeticCatalogItem,
   type CosmeticEquipSlot,
 } from '@drawduo/protocol'
-import { getClientAccessToken, getClientRuntimeConfig } from '@drawduo/platform'
+import { getClientRuntimeConfig } from '@drawduo/platform'
+import { getAuthUser, getClientAccessToken, neonAuthConfigured, signInWithEmail, signOutNeonAuth, signUpWithEmail, type AuthUser } from './auth'
 import './styles.css'
 
 type DrawEvent = ServerMessageDrawEvent
@@ -103,7 +104,7 @@ const WS_URL = runtimeConfig.backendWsUrl
 const API_BASE = runtimeConfig.backendHttpUrl
 
 function developmentIdentityHeaders(userId: string): Record<string, string> {
-  if (!import.meta.env.DEV) return {}
+  if (!import.meta.env.DEV || neonAuthConfigured) return {}
   return { [['x', 'draw', 'duo', 'user'].join('-')]: userId }
 }
 
@@ -123,6 +124,7 @@ type Stroke = {
 
 type SessionModalAction = 'hide' | 'report' | 'block' | 'leave'
 type ReportCategory = 'harassment' | 'inappropriate_drawing' | 'spam' | 'other'
+type AuthMode = 'sign-in' | 'sign-up'
 
 const REPORT_CATEGORIES: Array<{ value: ReportCategory; label: string }> = [
   { value: 'harassment', label: 'Harassment' },
@@ -135,6 +137,7 @@ type ModalRequest =
   | { kind: 'clear'; sessionId: string; turnId: string }
   | { kind: 'session-action'; action: SessionModalAction; sessionId: string; turnId: string | null; partnerId: string | null; reportCategory: ReportCategory | null }
   | { kind: 'purchase'; itemId: string }
+  | { kind: 'auth'; mode: AuthMode }
 
 type ModalProps = {
   title: string
@@ -277,6 +280,12 @@ function App() {
   const [drawWidth, setDrawWidth] = useState(12)
   const [drawTool, setDrawTool] = useState<'draw' | 'erase'>('draw')
   const [appState, setAppState] = useState<AppState>({ userId: '', sessionId: '' })
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null)
+  const [authBusy, setAuthBusy] = useState(false)
+  const [authError, setAuthError] = useState<string | null>(null)
+  const [authEmail, setAuthEmail] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
+  const [authDisplayName, setAuthDisplayName] = useState('')
   const [profile, setProfile] = useState<AccountProfile | null>(null)
   const [catalog, setCatalog] = useState<CatalogItem[]>([])
   const [showShop, setShowShop] = useState(false)
@@ -337,6 +346,7 @@ function App() {
   viewStateRef.current = { connected, sessionId: session?.sessionId ?? null }
   const sessionModal = modal?.kind === 'session-action' ? modal : null
   const purchaseModalItem = modal?.kind === 'purchase' ? catalog.find((item) => item.itemId === modal.itemId) : null
+  const authModal = modal?.kind === 'auth' ? modal : null
   const clearModalOpen = Boolean(
     modal?.kind === 'clear'
       && modal.sessionId === session?.sessionId
@@ -360,7 +370,8 @@ function App() {
       && !ownedCosmeticIds.has(purchaseModalItem.itemId)
       && spendableCoins >= purchaseModalItem.price,
   )
-  const modalOpen = clearModalOpen || sessionModalOpen || purchaseModalOpen
+  const authModalOpen = Boolean(authModal && neonAuthConfigured)
+  const modalOpen = clearModalOpen || sessionModalOpen || purchaseModalOpen || authModalOpen
   const sessionModalDetails = sessionModal ? sessionModalCopy(sessionModal.action) : null
 
   const rematchTargetMs = session?.rematchDeadline ?? null
@@ -371,6 +382,18 @@ function App() {
       setAppState((state) => ({ ...state, userId: localUserId }))
     }
   }, [localUserId, appState.userId])
+
+  useEffect(() => {
+    let active = true
+    void getAuthUser().then((user) => {
+      if (!active) return
+      setAuthUser(user)
+      if (user) setAppState((state) => ({ ...state, userId: user.id }))
+    }).catch(() => {
+      if (active) setAuthUser(null)
+    })
+    return () => { active = false }
+  }, [])
 
   useEffect(() => {
     if (modal && !modalOpen) setModal(null)
@@ -616,7 +639,71 @@ function App() {
     })
   }, [connected, isDrawer, previewGame, resetCanvas, sendMessage, session])
 
-  const closeModal = useCallback(() => setModal(null), [])
+  const openAuthModal = useCallback((mode: AuthMode) => {
+    setAuthError(null)
+    setAuthPassword('')
+    setModal({ kind: 'auth', mode })
+  }, [])
+
+  const closeModal = useCallback(() => {
+    setModal(null)
+    setAuthError(null)
+    setAuthPassword('')
+  }, [])
+
+  const toggleAuthMode = useCallback(() => {
+    setAuthError(null)
+    setAuthPassword('')
+    setModal((current) => current?.kind === 'auth' ? { ...current, mode: current.mode === 'sign-in' ? 'sign-up' : 'sign-in' } : current)
+  }, [])
+
+  const submitAuth = useCallback(async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!authModal || authBusy) return
+    const email = authEmail.trim()
+    const displayName = authDisplayName.trim()
+    if (!email || !authPassword || (authModal.mode === 'sign-up' && !displayName)) {
+      setAuthError('Complete all fields first.')
+      return
+    }
+    setAuthBusy(true)
+    setAuthError(null)
+    try {
+      const user = authModal.mode === 'sign-in'
+        ? await signInWithEmail(email, authPassword)
+        : await signUpWithEmail(email, authPassword, displayName)
+      if (!user) throw new Error(authModal.mode === 'sign-up' ? 'Account created. Check your email, then sign in.' : 'Sign-in did not return an account.')
+      setAuthUser(user)
+      setAppState((state) => ({ ...state, userId: user.id }))
+      setModal(null)
+      setAuthPassword('')
+      setStatus(authModal.mode === 'sign-in' ? 'Signed in' : 'Account created')
+    } catch (err) {
+      setAuthError((err as Error).message)
+    } finally {
+      setAuthBusy(false)
+    }
+  }, [authBusy, authDisplayName, authEmail, authModal, authPassword])
+
+  const signOut = useCallback(async () => {
+    try {
+      await signOutNeonAuth()
+      setAuthUser(null)
+      setProfile(null)
+      setAccountSync('offline')
+      setAppState((state) => ({ ...state, userId: localUserId }))
+      setStatus('Signed out')
+      setError(null)
+    } catch (err) {
+      setError(`Sign out failed: ${(err as Error).message}`)
+    }
+  }, [localUserId])
+
+  const requireAuth = useCallback(() => {
+    if (!neonAuthConfigured || authUser) return true
+    openAuthModal('sign-in')
+    return false
+  }, [authUser, openAuthModal])
 
   const confirmClear = useCallback(() => {
     setModal(null)
@@ -938,10 +1025,12 @@ function App() {
     })
     const json = res.status === 204 ? null : await res.json()
     if (!res.ok) {
-      throw new Error(json.error || `HTTP ${res.status}`)
+      const message = json.error || `HTTP ${res.status}`
+      if (message === 'authentication_required') openAuthModal('sign-in')
+      throw new Error(message)
     }
     return json as T
-  }, [appState.userId])
+  }, [appState.userId, openAuthModal])
 
   const acceptTerms = useCallback(async () => {
     try {
@@ -1085,15 +1174,17 @@ function App() {
   }, [blockPartner, hideAndLeave, leaveRoom, modal, reportPartner, sessionModalOpen])
 
   const createPrivateRoom = useCallback(async () => {
+    if (!requireAuth()) return
     const payload = await callApi<{ roomId: string; roomCode: string }>(`/api/lobby/private/create`, {
       method: 'POST',
       body: JSON.stringify({}),
     })
     setRoomCodeInput(payload.roomCode)
     await joinByRoomId(payload.roomId, payload.roomCode)
-  }, [callApi, joinByRoomId])
+  }, [callApi, joinByRoomId, requireAuth])
 
   const joinPrivateRoom = useCallback(async () => {
+    if (!requireAuth()) return
     if (!roomCodeInput.trim()) {
       setError('Enter a room code')
       return
@@ -1103,15 +1194,16 @@ function App() {
       body: JSON.stringify({ code: roomCodeInput.trim() }),
     })
     await joinByRoomId(payload.roomId)
-  }, [callApi, roomCodeInput, joinByRoomId])
+  }, [callApi, roomCodeInput, joinByRoomId, requireAuth])
 
   const startQuick = useCallback(async () => {
+    if (!requireAuth()) return
     const payload = await callApi<{ roomId: string; roomCode: string | null }>(`/api/match/quick`, {
       method: 'POST',
       body: JSON.stringify({ userId: appState.userId, buildId: runtimeConfig.buildId, protocolMajor: runtimeConfig.protocolMajor, language: 'en', platformId: runtimeConfig.platformId, capabilities: runtimeConfig.capabilities }),
     })
     await joinByRoomId(payload.roomId)
-  }, [appState.userId, callApi, joinByRoomId])
+  }, [appState.userId, callApi, joinByRoomId, requireAuth])
 
   const applyPointerPosition = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = localCanvasRef.current
@@ -1355,6 +1447,7 @@ function App() {
           <p className="info muted">A colorful cooperative drawing game with shared streaks and equal rewards.</p>
         </div>
         <div className="lobby-header-actions">
+          {neonAuthConfigured && (authUser ? <button className="soft-button" onClick={signOut}>Sign out</button> : <button className="soft-button" onClick={() => openAuthModal('sign-in')}>Sign in</button>)}
           <button className="store-button store-button--lobby" onClick={openShop} disabled={!profile} aria-label="Open reward store"><StoreIcon /><span>Store</span></button>
           <button className="soft-button" onClick={() => setShowSettings((value) => !value)}>Settings</button>
         </div>
@@ -1402,6 +1495,7 @@ function App() {
       )}
 
       {!connected && !profile && accountSync === 'loading' && <p className="info" role="status">Loading account...</p>}
+      {!connected && neonAuthConfigured && !authUser && <p className="info account-auth-prompt">Sign in to join live games and save your progress.</p>}
       {!connected && !profile && accountSync === 'offline' && <p className="info" role="alert">Account sync is unavailable. You can still play, but rewards and profile changes are paused.</p>}
 
       {showShop && (
@@ -1684,6 +1778,39 @@ function App() {
             </section>
           </section>
         </>
+      )}
+      {authModalOpen && authModal && (
+        <Modal
+          title={authModal.mode === 'sign-in' ? 'Welcome back' : 'Create your account'}
+          eyebrow="Draw Duo account"
+          onClose={closeModal}
+          fallbackFocusRef={appRootRef}
+        >
+          <form className="auth-form" onSubmit={submitAuth}>
+            {authModal.mode === 'sign-up' && (
+              <label className="app-modal__field">
+                <span>Display name</span>
+                <input value={authDisplayName} onChange={(event) => setAuthDisplayName(event.target.value)} maxLength={32} autoComplete="name" required />
+              </label>
+            )}
+            <label className="app-modal__field">
+              <span>Email</span>
+              <input type="email" value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} autoComplete="email" required />
+            </label>
+            <label className="app-modal__field">
+              <span>Password</span>
+              <input type="password" value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} minLength={8} autoComplete={authModal.mode === 'sign-in' ? 'current-password' : 'new-password'} required />
+            </label>
+            {authError && <p className="auth-form__error" role="alert">{authError}</p>}
+            <div className="auth-form__actions">
+              <button type="submit" disabled={authBusy}>{authBusy ? 'Working...' : authModal.mode === 'sign-in' ? 'Sign in' : 'Create account'}</button>
+              <button type="button" className="modal-button--secondary" onClick={closeModal} disabled={authBusy}>Cancel</button>
+            </div>
+            <button type="button" className="auth-form__switch" onClick={toggleAuthMode} disabled={authBusy}>
+              {authModal.mode === 'sign-in' ? 'Need an account? Create one' : 'Already have an account? Sign in'}
+            </button>
+          </form>
+        </Modal>
       )}
       {clearModalOpen && (
         <Modal

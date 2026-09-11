@@ -9,15 +9,16 @@ export async function authenticateRequest(request: Request): Promise<RequestIden
   const authorization = request.header('authorization')
   if (authorization?.startsWith('Bearer ')) {
     const token = authorization.slice('Bearer '.length).trim()
-    const jwksUrl = process.env.SUPABASE_JWKS_URL
-    const issuer = process.env.SUPABASE_ISSUER
-    const audience = process.env.SUPABASE_AUDIENCE
+    const jwksUrl = process.env.NEON_AUTH_JWKS_URL
+    const authBaseUrl = process.env.NEON_AUTH_BASE_URL ?? process.env.NEON_AUTH_URL
+    const issuer = process.env.NEON_AUTH_ISSUER ?? authBaseUrl
+    const audience = process.env.NEON_AUTH_AUDIENCE ?? authBaseUrl
     if (!jwksUrl || !issuer || !audience) throw new Error('auth_provider_not_configured')
     const jwks = jwksCache.get(jwksUrl) ?? createRemoteJWKSet(new URL(jwksUrl))
     jwksCache.set(jwksUrl, jwks)
     const verified = await jwtVerify(token, jwks, { issuer, audience })
     if (typeof verified.payload.sub !== 'string' || verified.payload.sub.length === 0) throw new Error('invalid_identity')
-    return { subject: verified.payload.sub, displayName: typeof verified.payload.email === 'string' ? verified.payload.email : undefined }
+    return { subject: verified.payload.sub, displayName: typeof verified.payload.name === 'string' ? verified.payload.name : typeof verified.payload.email === 'string' ? verified.payload.email : undefined }
   }
 
   if (process.env.DRAW_DUO_TEST_MODE === '1' || process.env.NODE_ENV === 'development') {
