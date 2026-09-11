@@ -104,7 +104,7 @@ const WS_URL = runtimeConfig.backendWsUrl
 const API_BASE = runtimeConfig.backendHttpUrl
 
 function developmentIdentityHeaders(userId: string): Record<string, string> {
-  if (!import.meta.env.DEV || neonAuthConfigured) return {}
+  if (!import.meta.env.DEV) return {}
   return { [['x', 'draw', 'duo', 'user'].join('-')]: userId }
 }
 
@@ -700,7 +700,7 @@ function App() {
   }, [localUserId])
 
   const requireAuth = useCallback(() => {
-    if (!neonAuthConfigured || authUser) return true
+    if (!neonAuthConfigured || authUser || import.meta.env.DEV) return true
     openAuthModal('sign-in')
     return false
   }, [authUser, openAuthModal])
