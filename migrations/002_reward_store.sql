@@ -2,16 +2,20 @@ ALTER TABLE cosmetic_catalog
   DROP CONSTRAINT IF EXISTS cosmetic_catalog_type_check;
 
 ALTER TABLE cosmetic_catalog
-  ADD CONSTRAINT cosmetic_catalog_type_check
-  CHECK (type IN ('draw_color', 'brush_size', 'name_font', 'nameplate_border'));
-
-ALTER TABLE cosmetic_catalog
   ADD COLUMN IF NOT EXISTS value text;
 
-UPDATE cosmetic_catalog SET enabled = false, value = item_id
-WHERE item_id IN ('frame-sunrise', 'theme-paper', 'title-sketcher');
+UPDATE cosmetic_catalog
+SET enabled = false, value = item_id
+WHERE type IN ('avatar_frame', 'ui_theme', 'profile_title', 'celebration');
 
 UPDATE cosmetic_catalog SET value = item_id WHERE value IS NULL;
+
+ALTER TABLE cosmetic_catalog
+  ADD CONSTRAINT cosmetic_catalog_type_check
+  CHECK (
+    type IN ('draw_color', 'brush_size', 'name_font', 'nameplate_border')
+    OR (type IN ('avatar_frame', 'ui_theme', 'profile_title', 'celebration') AND enabled = false)
+  );
 
 ALTER TABLE cosmetic_catalog
   ALTER COLUMN value SET NOT NULL;
