@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Draw Duo moderation</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, sans-serif; background: #eef3f7; color: #17202a; }
+    body { max-width: 980px; margin: 0 auto; padding: 24px; }
+    header, article { background: #fff; border: 1px solid #c8d2dc; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+    header { display: grid; gap: 10px; }
+    .toolbar, .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    input, select, button { font: inherit; padding: 8px 10px; border: 1px solid #9aaaba; border-radius: 7px; }
+    button { cursor: pointer; background: #164e63; color: #fff; }
+    button.secondary { background: #fff; color: #164e63; }
+    .muted { color: #536576; }
+    .error { color: #9b1c1c; white-space: pre-wrap; }
+    pre { max-height: 280px; overflow: auto; background: #101820; color: #d8f3dc; padding: 12px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Draw Duo moderation queue</h1>
+    <p class="muted">Restricted operator tool. The key stays in this tab and is never placed in the URL or page source.</p>
+    <div class="toolbar">
+      <label for="moderation-key">Moderation key</label>
+      <input id="moderation-key" type="password" autocomplete="off" size="34">
+      <select id="status-filter" aria-label="Report status">
+        <option value="open">Open</option>
+        <option value="reviewed">Reviewed</option>
+      </select>
+      <button id="load-reports">Load reports</button>
+    </div>
+    <p id="message" class="muted" role="status"></p>
+  </header>
+  <main id="reports" aria-live="polite"></main>
+  <script>
+    const keyInput = document.querySelector('#moderation-key')
+    const filter = document.querySelector('#status-filter')
+    const reports = document.querySelector('#reports')
+    const message = document.querySelector('#message')
+
+    function headers() {
+      return { 'Content-Type': 'application/json', 'x-moderation-key': keyInput.value }
+    }
+
+    async function request(url, init = {}) {
+      const response = await fetch(url, { ...init, headers: { ...headers(), ...(init.headers || {}) } })
+      const body = response.status === 204 ? null : await response.json()
+      if (!response.ok) throw new Error(body?.error || `HTTP ${response.status}`)
+      return body
+    }
+
+    function addText(parent, text, tag = 'p') {
+      const node = document.createElement(tag)
+      node.textContent = text
+      parent.append(node)
+      return node
+    }
+
+    function render(items) {
+      reports.replaceChildren()
+      if (!items.length) {
+        addText(reports, 'No reports in this queue.', 'p')
+        return
+      }
+      for (const report of items) {
+        const card = document.createElement('article')
+        addText(card, `${report.category} | ${report.status}`, 'h2')
+        addText(card, `Report ${report.reportId}`)
+        addText(card, `Reporter ${report.reporterId} | Subject ${report.subjectId}`)
+        addText(card, `Session ${report.sessionId || 'none'} | Turn ${report.turnId || 'none'}`)
+        const actions = document.createElement('div')
+        actions.className = 'actions'
+        const action = document.createElement('select')
+        for (const value of ['no_action', 'suspend_account', 'remove_content']) {
+          const option = document.createElement('option')
+          option.value = value
+          option.textContent = value
+          action.append(option)
+        }
+        const reason = document.createElement('input')
+        reason.placeholder = 'Reason required'
+        reason.size = 30
+        const review = document.createElement('button')
+        review.textContent = 'Review'
+        review.onclick = async () => {
+          try {
+            await request(`/api/safety/admin/reports/${encodeURIComponent(report.reportId)}/review`, { method: 'POST', body: JSON.stringify({ action: action.value, reason: reason.value }) })
+            message.textContent = 'Review saved.'
+            await load()
+          } catch (error) { message.textContent = error.message }
+        }
+        const evidence = document.createElement('button')
+        evidence.className = 'secondary'
+        evidence.textContent = 'View evidence'
+        evidence.onclick = async () => {
+          try {
+            const data = await request(`/api/safety/admin/reports/${encodeURIComponent(report.reportId)}/evidence`)
+            addText(card, JSON.stringify(data, null, 2), 'pre')
+          } catch (error) { message.textContent = error.message }
+        }
+        actions.append(action, reason, review, evidence)
+        card.append(actions)
+        reports.append(card)
+      }
+    }
+
+    async function load() {
+      message.textContent = 'Loading...'
+      try {
+        const data = await request(`/api/safety/admin/reports?status=${encodeURIComponent(filter.value)}`)
+        render(data.reports || [])
+        message.textContent = `${data.reports?.length || 0} report(s) loaded.`
+      } catch (error) {
+        reports.replaceChildren()
+        message.textContent = error.message
+      }
+    }
+
+    document.querySelector('#load-reports').onclick = load
+  </script>
+</body>
+</html>

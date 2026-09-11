@@ -57,10 +57,10 @@ type GameRoom = {
   sessionState: ServerStateMessage['state']
 }
 
-async function joinByIdOrThrow(client: Client, roomId: string, userId: string): Promise<Room> {
+async function joinByIdOrThrow(client: Client, roomId: string, roomCode: string, userId: string): Promise<Room> {
   return client.joinById(roomId, {
     userId,
-    roomCode: 'NOCODE',
+    roomCode,
   })
 }
 
@@ -90,10 +90,10 @@ describe('integration: two-client room and protocol checks', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
     })
-    const { roomId } = await response.json()
+    const { roomId, roomCode } = await response.json() as { roomId: string; roomCode: string }
 
-    const roomA = await joinByIdOrThrow(clientA, roomId, 'user-a')
-    const roomB = await joinByIdOrThrow(clientB, roomId, 'user-b')
+    const roomA = await joinByIdOrThrow(clientA, roomId, roomCode, 'user-a')
+    const roomB = await joinByIdOrThrow(clientB, roomId, roomCode, 'user-b')
 
     const startA = await waitForMessage<ServerStateMessage>(roomA, 'sessionState')
     const startB = await waitForMessage<ServerStateMessage>(roomB, 'sessionState')

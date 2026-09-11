@@ -3,12 +3,20 @@ apply plugin: 'com.android.application'
 android {
     namespace = "com.drawduo.playtest"
     compileSdk = rootProject.ext.compileSdkVersion
+    def releaseKeystorePath = System.getenv('DRAW_DUO_ANDROID_KEYSTORE_PATH')
+    def releaseKeystorePassword = System.getenv('DRAW_DUO_ANDROID_KEYSTORE_PASSWORD')
+    def releaseKeyAlias = System.getenv('DRAW_DUO_ANDROID_KEY_ALIAS')
+    def releaseKeyPassword = System.getenv('DRAW_DUO_ANDROID_KEY_PASSWORD')
+    def hasReleaseSigning = releaseKeystorePath && releaseKeystorePassword && releaseKeyAlias && releaseKeyPassword
+    def androidVersionCode = (System.getenv('DRAW_DUO_ANDROID_VERSION_CODE') ?: '1').toInteger()
+    def androidVersionName = System.getenv('DRAW_DUO_ANDROID_VERSION_NAME') ?: '1.0'
+    def releaseBuildRequested = gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') }
     defaultConfig {
         applicationId "com.drawduo.playtest"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode androidVersionCode
+        versionName androidVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,9 +24,21 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (hasReleaseSigning) {
+                storeFile file(releaseKeystorePath)
+                storePassword releaseKeystorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
+            if (releaseBuildRequested && !hasReleaseSigning) throw new GradleException('DRAW_DUO_ANDROID_* signing variables are required for release builds.')
+            if (hasReleaseSigning) signingConfig signingConfigs.release
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }

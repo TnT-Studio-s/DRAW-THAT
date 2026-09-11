@@ -53,6 +53,11 @@ export function getCodeByRoom(roomId: string): string | null {
   return registryRoom.get(roomId) ?? null
 }
 
+export function validateCodeForRoom(roomId: string, roomCode: string | undefined): boolean {
+  const expected = getCodeByRoom(roomId)
+  return expected !== null && expected === roomCode?.trim().toUpperCase()
+}
+
 export function releaseCode(roomCode: string) {
   const invite = registryCode.get(roomCode)
   registryCode.delete(roomCode)

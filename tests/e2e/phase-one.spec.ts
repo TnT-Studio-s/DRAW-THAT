@@ -34,6 +34,7 @@ test('two browser clients complete all eight alternating turns and reach results
       const drawer = await choiceA.isVisible() ? pageA : pageB
       const guesser = drawer === pageA ? pageB : pageA
       await drawer.getByTestId('choice-1').click()
+      await expect(drawer.getByText(/^Draw: /)).toBeVisible()
       if (turn === 0) {
         await expect(drawer.getByTestId('draw-canvas')).toBeVisible()
         const canvas = await drawer.getByTestId('draw-canvas').boundingBox()

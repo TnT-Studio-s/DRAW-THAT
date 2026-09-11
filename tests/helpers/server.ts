@@ -27,7 +27,7 @@ export async function waitForPort(port: number, timeoutMs = 10000): Promise<void
   })
 }
 
-export function startLocalServer(port: number, options: { testMode?: boolean } = {}): {
+export function startLocalServer(port: number, options: { testMode?: boolean; adminKey?: string } = {}): {
   process: ChildProcessWithoutNullStreams
   port: number
   url: string
@@ -38,6 +38,7 @@ export function startLocalServer(port: number, options: { testMode?: boolean } =
       ...process.env,
       PORT: String(port),
       DRAW_DUO_TEST_MODE: options.testMode ? '1' : process.env.DRAW_DUO_TEST_MODE,
+      DRAW_DUO_TEST_ADMIN_KEY: options.adminKey ?? process.env.DRAW_DUO_TEST_ADMIN_KEY,
     },
     shell: false,
     stdio: 'pipe',

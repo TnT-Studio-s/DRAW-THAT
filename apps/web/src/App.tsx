@@ -10,10 +10,16 @@ import {
   type TurnOutcome,
   type TileSchema,
   type ServerMessagePrivateChoices,
+  type ServerMessagePrivatePrompt,
   type ServerMessageGuess,
   type ServerMessageTurnResolved,
+  COSMETIC_CATALOG,
+  STARTER_COSMETIC_IDS,
+  cosmeticById,
+  type CosmeticCatalogItem,
+  type CosmeticEquipSlot,
 } from '@drawduo/protocol'
-import { getClientRuntimeConfig } from '@drawduo/platform'
+import { getClientAccessToken, getClientRuntimeConfig } from '@drawduo/platform'
 import './styles.css'
 
 type DrawEvent = ServerMessageDrawEvent
@@ -37,13 +43,69 @@ type AccountProfile = {
   lifetimeCoins: number
   duoStreakCurrent: number
   duoStreakBest: number
+  ownedCosmetics: string[]
+  equippedCosmetics: Record<string, string>
 }
 
-type CatalogItem = { itemId: string; type: string; name: string; price: number; enabled: boolean }
+type CatalogItem = CosmeticCatalogItem
 
-const runtimeConfig = getClientRuntimeConfig()
+const DRAW_COLORS = COSMETIC_CATALOG.filter((item) => item.type === 'draw_color')
+const BRUSH_SIZES = COSMETIC_CATALOG.filter((item) => item.type === 'brush_size')
+const KEYBOARD_ROWS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'] as const
+const DRAWING_DURATION_MS = 60_000
+
+function difficultyLabel(difficulty: TurnChoice['difficulty']) {
+  if (difficulty === 1) return 'Easy'
+  if (difficulty === 2) return 'Medium'
+  return 'Difficult'
+}
+
+function answerGroups(answer: string) {
+  return answer.trim().toUpperCase().split(/\s+/).filter(Boolean).map((word) => Array.from(word))
+}
+
+function StoreIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8V6.5A6.5 6.5 0 0 1 18 6.5V8h2a1 1 0 0 1 1 1l-1 11a1 1 0 0 1-1 .9H5A1 1 0 0 1 4 20L3 9a1 1 0 0 1 1-1h1Zm2 0h9V6.5a4.5 4.5 0 0 0-9 0V8Zm1.5 4a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5Zm7 0a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5Z" /></svg>
+}
+
+function catalogTypeLabel(type: CatalogItem['type']) {
+  if (type === 'draw_color') return 'Colors'
+  if (type === 'brush_size') return 'Brush sizes'
+  if (type === 'name_font') return 'Name fonts'
+  return 'Nameplate borders'
+}
+
+function createPreviewSession(): SessionPublicState {
+  return {
+    roomCode: 'PREVIEW', phase: 'DRAWING', sessionId: 'preview-session', turnsPerSession: 8, turnIndex: 0,
+    teamScore: 12, solvedTurns: 2, sessionCoinsPerPlayer: 6, duoStreakCurrent: 2, duoStreakBest: 4,
+    playerStates: [
+      { sessionId: 'preview-local', userId: 'preview-local', role: 'drawer', wallet: 48, connected: true, ready: true, rematch: false, displayName: 'You', appearance: { draw_color: 'color-blue', brush_size: 'brush-medium', name_font: 'font-plain', nameplate_border: 'border-plain' } },
+      { sessionId: 'preview-partner', userId: 'preview-partner', role: 'guesser', wallet: null, connected: true, ready: true, rematch: false, displayName: 'Sunny Scribbler', appearance: { name_color: 'color-purple', name_font: 'font-bubble', nameplate_border: 'border-sunshine' } },
+    ],
+    activeTurn: {
+      turnId: 'preview-turn', turnIndex: 0, phase: 'DRAWING', drawerSessionId: 'preview-local', selectedDifficulty: 2,
+      selectedPromptLength: 3, slotPattern: [3], slotCount: 3, remainingMs: 47_000, revealedAnswer: null,
+      outcome: null, resolutionId: null, boardGeneration: 0,
+      board: [{ id: 'preview-s', letter: 'S', used: false }, { id: 'preview-u', letter: 'U', used: false }, { id: 'preview-n', letter: 'N', used: false }],
+    },
+    rematchDeadline: null, startedAt: Date.now(), version: 'preview',
+  }
+}
+
+const baseRuntimeConfig = getClientRuntimeConfig()
+const runtimeConfig = {
+  ...baseRuntimeConfig,
+  backendHttpUrl: import.meta.env.VITE_DRAW_DUO_BACKEND_HTTP_URL || baseRuntimeConfig.backendHttpUrl,
+  backendWsUrl: import.meta.env.VITE_DRAW_DUO_BACKEND_WS_URL || import.meta.env.VITE_DRAW_DUO_BACKEND_HTTP_URL?.replace(/^http/, 'ws') || baseRuntimeConfig.backendWsUrl,
+}
 const WS_URL = runtimeConfig.backendWsUrl
 const API_BASE = runtimeConfig.backendHttpUrl
+
+function developmentIdentityHeaders(userId: string): Record<string, string> {
+  if (!import.meta.env.DEV) return {}
+  return { [['x', 'draw', 'duo', 'user'].join('-')]: userId }
+}
 
 type StrokePoint = {
   x: number
@@ -102,6 +164,7 @@ function App() {
   const [session, setSession] = useState<SessionPublicState | null>(null)
   const [roomCodeInput, setRoomCodeInput] = useState('')
   const [choices, setChoices] = useState<TurnChoice[]>([])
+  const [selectedPrompt, setSelectedPrompt] = useState<string | null>(null)
   const [drawBank, setDrawBank] = useState<TileSchema[]>([])
   const [slotPattern, setSlotPattern] = useState<number[]>([])
   const [selectedTileIds, setSelectedTileIds] = useState<string[]>([])
@@ -109,6 +172,11 @@ function App() {
   const [lastTurnReveal, setLastTurnReveal] = useState<ServerMessageTurnResolved | null>(null)
   const [mute, setMute] = useState(false)
   const [reducedMotion, setReducedMotion] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+  const [previewGame, setPreviewGame] = useState(false)
+  const [drawColor, setDrawColor] = useState('#1a73ff')
+  const [drawWidth, setDrawWidth] = useState(12)
+  const [drawTool, setDrawTool] = useState<'draw' | 'erase'>('draw')
   const [appState, setAppState] = useState<AppState>({ userId: '', sessionId: '' })
   const [profile, setProfile] = useState<AccountProfile | null>(null)
   const [catalog, setCatalog] = useState<CatalogItem[]>([])
@@ -116,14 +184,18 @@ function App() {
   const [editingProfile, setEditingProfile] = useState(false)
   const [profileDraft, setProfileDraft] = useState('')
   const [safetyMessage, setSafetyMessage] = useState<string | null>(null)
+  const [accountSync, setAccountSync] = useState<'loading' | 'ready' | 'offline'>('loading')
+  const [showGuide, setShowGuide] = useState(true)
   const connectionEpochRef = useRef(1)
   const intentionalLeaveRef = useRef(false)
   const reconnectingRef = useRef(false)
+  const wrongGuessTimerRef = useRef<number | null>(null)
 
   const clientRef = useRef<Client | null>(null)
   const roomRef = useRef<Room | null>(null)
   const localCanvasRef = useRef<HTMLCanvasElement | null>(null)
-  const boardSizeRef = useRef(512)
+  const stateReceivedAtRef = useRef(Date.now())
+  const [, setClockTick] = useState(0)
 
   const drawing = useRef(false)
   const pointerIdRef = useRef<number | null>(null)
@@ -152,6 +224,14 @@ function App() {
   const isDrawer = localPlayer?.role === 'drawer'
   const connectedCount = session?.playerStates.filter((entry) => entry.connected).length ?? 0
   const roomCode = session?.roomCode ?? (roomCodeInput || null)
+  const spendableCoins = localPlayer?.wallet ?? profile?.wallet ?? 0
+
+  const ownedCosmeticIds = useMemo(() => new Set(profile?.ownedCosmetics ?? STARTER_COSMETIC_IDS), [profile])
+  const availableDrawColors = useMemo(() => DRAW_COLORS.filter((item) => ownedCosmeticIds.has(item.itemId)), [ownedCosmeticIds])
+  const availableBrushSizes = useMemo(() => BRUSH_SIZES.filter((item) => ownedCosmeticIds.has(item.itemId)), [ownedCosmeticIds])
+  const partnerNameColor = cosmeticById(partner?.appearance?.name_color)?.value ?? '#111111'
+  const partnerNameFont = cosmeticById(partner?.appearance?.name_font)?.value ?? 'plain'
+  const partnerNameBorder = cosmeticById(partner?.appearance?.nameplate_border)?.value ?? 'plain'
 
   const rematchTargetMs = session?.rematchDeadline ?? null
   const rematchCountdown = rematchTargetMs ? rematchTargetMs - Date.now() : null
@@ -165,12 +245,57 @@ function App() {
   useEffect(() => {
     if (!appState.userId) return
     let active = true
-    void fetch(`${API_BASE}/api/account/me`, { headers: { 'x-draw-duo-user': appState.userId } })
-      .then((response) => response.ok ? response.json() : null)
-      .then((account: AccountProfile | null) => { if (active) setProfile(account) })
-      .catch(() => undefined)
+    setAccountSync('loading')
+    void getClientAccessToken().then((token) => fetch(`${API_BASE}/api/account/me`, { headers: { ...developmentIdentityHeaders(appState.userId), ...(token ? { Authorization: `Bearer ${token}` } : {}) } }))
+      .then((response) => {
+        if (!response.ok) throw new Error('account_sync_unavailable')
+        return response.json() as Promise<AccountProfile>
+      })
+      .then((account) => { if (active) { setProfile(account); setAccountSync('ready') } })
+      .catch(() => { if (active) { setProfile(null); setAccountSync('offline') } })
     return () => { active = false }
   }, [appState.userId])
+
+  useEffect(() => {
+    setShowGuide(window.localStorage.getItem('draw-duo-guide-dismissed') !== '1')
+  }, [])
+
+  useEffect(() => {
+    if (!connected && !previewGame) return
+    const timer = window.setInterval(() => setClockTick((value) => value + 1), 250)
+    return () => window.clearInterval(timer)
+  }, [connected, previewGame])
+
+  useEffect(() => {
+    if (profile && localPlayer?.wallet !== null && localPlayer?.wallet !== undefined && profile.wallet !== localPlayer.wallet) {
+      setProfile((current) => current ? { ...current, wallet: localPlayer.wallet as number } : current)
+    }
+  }, [localPlayer?.wallet, profile])
+
+  useEffect(() => {
+    const equippedColor = cosmeticById(profile?.equippedCosmetics.draw_color)
+    const equippedSize = cosmeticById(profile?.equippedCosmetics.brush_size)
+    if (equippedColor?.type === 'draw_color' && ownedCosmeticIds.has(equippedColor.itemId)) {
+      setDrawColor(equippedColor.value)
+      drawStateRef.current.color = equippedColor.value
+    }
+    if (equippedSize?.type === 'brush_size' && ownedCosmeticIds.has(equippedSize.itemId)) {
+      const width = Number(equippedSize.value)
+      setDrawWidth(width)
+      drawStateRef.current.width = width
+    }
+  }, [ownedCosmeticIds, profile?.equippedCosmetics.brush_size, profile?.equippedCosmetics.draw_color])
+
+  useEffect(() => () => {
+    if (wrongGuessTimerRef.current !== null) {
+      window.clearTimeout(wrongGuessTimerRef.current)
+    }
+  }, [])
+
+  const dismissGuide = useCallback(() => {
+    window.localStorage.setItem('draw-duo-guide-dismissed', '1')
+    setShowGuide(false)
+  }, [])
 
   const getCanvasContext = useCallback(() => {
     const canvas = localCanvasRef.current
@@ -183,8 +308,7 @@ function App() {
       return null
     }
 
-    const size = Math.min(540, canvas.clientWidth)
-    boardSizeRef.current = size
+    const size = 1024
     if (canvas.width !== size || canvas.height !== size) {
       canvas.width = size
       canvas.height = size
@@ -198,11 +322,12 @@ function App() {
     if (!drawingContext) {
       return
     }
-    const { ctx } = drawingContext
+    const { canvas, ctx } = drawingContext
     if (points.length === 0) {
       return
     }
-    const last = points[0]
+    const scalePoint = (point: StrokePoint) => ({ x: point.x / 65535 * canvas.width, y: point.y / 65535 * canvas.height })
+    const last = scalePoint(points[0])
     ctx.beginPath()
     ctx.moveTo(last.x, last.y)
     if (tool === 'erase') {
@@ -216,7 +341,7 @@ function App() {
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
     for (let i = 1; i < points.length; i += 1) {
-      const point = points[i]
+      const point = scalePoint(points[i])
       ctx.lineTo(point.x, point.y)
     }
     ctx.stroke()
@@ -412,8 +537,10 @@ function App() {
     roomRef.current = null
     setSession(null)
     setConnected(false)
+    setPreviewGame(false)
     setStatus('Left session')
     setChoices([])
+    setSelectedPrompt(null)
     setDrawBank([])
     setSlotPattern([])
     setSelectedTileIds([])
@@ -456,6 +583,11 @@ function App() {
   }, [])
 
   const onSessionState = useCallback((next: SessionPublicState) => {
+    stateReceivedAtRef.current = Date.now()
+    if (next.phase === 'CLOSED' || next.phase === 'ABORTED') {
+      leaveRoom()
+      return
+    }
     setSession((current) => {
       if (!current || current.activeTurn?.turnId !== next.activeTurn?.turnId) {
         setSelectedTileIds([])
@@ -467,7 +599,7 @@ function App() {
       return next
     })
     setBoardFromSession(next)
-  }, [setBoardFromSession])
+  }, [leaveRoom, setBoardFromSession])
 
   const wireRoomEvents = useCallback((room: Room) => {
     room.onMessage('sessionState', (message: ServerMessage) => {
@@ -486,6 +618,11 @@ function App() {
           difficulty: choice.difficulty,
         })))
       }
+    })
+
+    room.onMessage('privatePrompt', (message: ServerMessage) => {
+      const parsed = parseMessage<ServerMessagePrivatePrompt>(message)
+      if (parsed?.answer) setSelectedPrompt(parsed.answer)
     })
 
     room.onMessage('drawBank', (message: ServerMessage) => {
@@ -512,6 +649,7 @@ function App() {
     room.onMessage('drawSnapshot', (message: ServerMessage) => {
       const parsed = parseMessage<ServerMessageDrawSnapshot>(message)
       if (!parsed) return
+      if (parsed.generation < boardGenerationRef.current) return
       boardGenerationRef.current = parsed.generation
       strokeHistoryRef.current = parsed.strokes.map((stroke) => ({ generation: stroke.generation, tool: stroke.tool, color: stroke.color, width: stroke.width, points: stroke.points }))
       resetCanvas()
@@ -523,7 +661,19 @@ function App() {
       if (!parsed) {
         return
       }
-      setGuessFeedback(parsed.correct ? 'Correct' : 'Wrong guess')
+      if (wrongGuessTimerRef.current !== null) {
+        window.clearTimeout(wrongGuessTimerRef.current)
+      }
+      if (parsed.correct) {
+        setGuessFeedback('Correct!')
+        return
+      }
+      setGuessFeedback('Try again')
+      wrongGuessTimerRef.current = window.setTimeout(() => {
+        setSelectedTileIds([])
+        setGuessFeedback(null)
+        wrongGuessTimerRef.current = null
+      }, 650)
     })
 
     room.onMessage('turnResolved', (message: ServerMessage) => {
@@ -531,8 +681,13 @@ function App() {
       if (!parsed) {
         return
       }
+      if (wrongGuessTimerRef.current !== null) {
+        window.clearTimeout(wrongGuessTimerRef.current)
+        wrongGuessTimerRef.current = null
+      }
       setLastTurnReveal(parsed)
-      setGuessFeedback(`Turn ${parsed.outcome}`)
+      setSelectedPrompt(null)
+      setGuessFeedback(null)
       setSelectedTileIds([])
     })
 
@@ -576,10 +731,11 @@ function App() {
       const client = clientRef.current ?? new Client(WS_URL)
       clientRef.current = client
       setStatus('Connecting')
+      const authToken = await getClientAccessToken()
       const room = await client.joinById(roomId, {
         roomCode: suppliedRoomCode,
         userId: appState.userId,
-        authToken: import.meta.env.VITE_SUPABASE_ACCESS_TOKEN,
+        authToken: authToken ?? undefined,
         buildId: runtimeConfig.buildId,
         protocolMajor: runtimeConfig.protocolMajor,
         language: 'en',
@@ -602,10 +758,12 @@ function App() {
   }, [appState.userId, roomCodeInput, wireRoomEvents])
 
   const callApi = useCallback(async <T,>(path: string, init: RequestInit = {}): Promise<T> => {
+    const authToken = await getClientAccessToken()
     const res = await fetch(`${API_BASE}${path}`, {
       headers: {
         'Content-Type': 'application/json',
-        'x-draw-duo-user': appState.userId,
+        ...developmentIdentityHeaders(appState.userId),
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         ...init.headers,
       },
       ...init,
@@ -627,6 +785,11 @@ function App() {
   }, [callApi])
 
   const openShop = useCallback(async () => {
+    if (previewGame) {
+      setCatalog([...COSMETIC_CATALOG])
+      setShowShop(true)
+      return
+    }
     try {
       const next = await callApi<{ items: CatalogItem[] }>('/api/progression/catalog')
       setCatalog(next.items)
@@ -634,7 +797,26 @@ function App() {
     } catch (err) {
       setError(`Catalog unavailable: ${(err as Error).message}`)
     }
-  }, [callApi])
+  }, [callApi, previewGame])
+
+  const openPreviewGame = useCallback(() => {
+    const next = createPreviewSession()
+    stateReceivedAtRef.current = Date.now()
+    setPreviewGame(true)
+    setConnected(true)
+    setStatus('Preview mode')
+    setError(null)
+    setShowSettings(false)
+    setShowShop(false)
+    setSelectedPrompt('SUN')
+    setDrawBank(next.activeTurn?.board ?? [])
+    setSlotPattern(next.activeTurn?.slotPattern ?? [])
+    setSelectedTileIds([])
+    setLastTurnReveal(null)
+    setAppState((current) => ({ ...current, sessionId: 'preview-local' }))
+    setSession(next)
+    window.setTimeout(() => resetCanvas(), 0)
+  }, [resetCanvas])
 
   const saveProfile = useCallback(async () => {
     try {
@@ -650,10 +832,20 @@ function App() {
     try {
       await callApi('/api/progression/purchase', { method: 'POST', body: JSON.stringify({ itemId, requestId: crypto.randomUUID() }) })
       setProfile(await callApi<AccountProfile>('/api/account/me'))
+      sendMessage({ type: 'refreshProfile' })
     } catch (err) {
       setError(`Purchase failed: ${(err as Error).message}`)
     }
-  }, [callApi])
+  }, [callApi, sendMessage])
+
+  const equipItem = useCallback(async (itemId: string, slot?: CosmeticEquipSlot) => {
+    try {
+      setProfile(await callApi<AccountProfile>('/api/progression/equip', { method: 'POST', body: JSON.stringify({ itemId, slot }) }))
+      sendMessage({ type: 'refreshProfile' })
+    } catch (err) {
+      setError(`Equip failed: ${(err as Error).message}`)
+    }
+  }, [callApi, sendMessage])
 
   const hideAndLeave = useCallback(() => {
     resetCanvas()
@@ -718,8 +910,8 @@ function App() {
     }
     const rect = canvas.getBoundingClientRect()
     return {
-      x: ((event.clientX - rect.left) / rect.width) * boardSizeRef.current,
-      y: ((event.clientY - rect.top) / rect.height) * boardSizeRef.current,
+      x: Math.round(((event.clientX - rect.left) / rect.width) * 65535),
+      y: Math.round(((event.clientY - rect.top) / rect.height) * 65535),
       pressure: event.pressure,
     }
   }
@@ -888,8 +1080,7 @@ function App() {
     const groups: (string | null)[][] = []
     let cursor = 0
     for (const size of slotPattern) {
-      const ids = selectedTileIds.slice(cursor, cursor + size)
-      groups.push(ids.map((tileId) => tileId))
+      groups.push(Array.from({ length: size }, (_, offset) => selectedTileIds[cursor + offset] ?? null))
       cursor += size
     }
     return groups
@@ -899,31 +1090,82 @@ function App() {
     return drawBank.filter((tile) => !selectedTileIds.includes(tile.id))
   }, [drawBank, selectedTileIds])
 
-  return (
-    <div className="app">
-      <header>
-        <div>
-          <h1>Draw Duo - Phase 3</h1>
-          <p className="info muted">Active model: gpt-5.3-codex-spark in this session.</p>
-        </div>
-        <div className="controls">
-          <label>
-            <input type="checkbox" checked={mute} onChange={(event) => setMute(event.target.checked)} />
-            Mute
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              checked={reducedMotion}
-              onChange={(event) => setReducedMotion(event.target.checked)}
-            />
-            Reduced motion
-          </label>
-          {connected && <button onClick={leaveRoom}>Leave</button>}
-        </div>
-      </header>
+  const visibleWordGroups = useMemo<(string | null)[][]>(() => {
+    if (isDrawer && selectedPrompt) {
+      return answerGroups(selectedPrompt)
+    }
+    return groupedSlots.map((group) => group.map((tileId) => (
+      tileId ? drawBank.find((tile) => tile.id === tileId)?.letter ?? null : null
+    )))
+  }, [drawBank, groupedSlots, isDrawer, selectedPrompt])
 
-      {profile && (
+  const remainingTurnMs = session
+    ? Math.max(0, (session.activeTurn?.remainingMs ?? 0) - (Date.now() - stateReceivedAtRef.current))
+    : 0
+  const remainingTurnSeconds = Math.ceil(remainingTurnMs / 1000)
+  const drawingTimePercent = Math.min(100, Math.max(0, remainingTurnMs / DRAWING_DURATION_MS * 100))
+  const timerIsUrgent = session?.phase === 'DRAWING' && remainingTurnMs > 0 && remainingTurnMs <= 10_000
+  const wrongGuess = guessFeedback === 'Try again'
+  const solvedReveal = session?.phase === 'REVEAL' && lastTurnReveal?.outcome === 'solved'
+
+  const selectDrawColor = (color: string) => {
+    setDrawColor(color)
+    setDrawTool('draw')
+    drawStateRef.current.color = color
+    drawStateRef.current.tool = 'draw'
+  }
+
+  const selectDrawTool = (tool: 'draw' | 'erase') => {
+    setDrawTool(tool)
+    drawStateRef.current.tool = tool
+  }
+
+  const cycleDrawColor = (direction: -1 | 1) => {
+    const currentIndex = availableDrawColors.findIndex((entry) => entry.value === drawColor)
+    const nextIndex = (currentIndex + direction + availableDrawColors.length) % availableDrawColors.length
+    selectDrawColor(availableDrawColors[nextIndex].value)
+  }
+
+  const cycleBrushWidth = () => {
+    const currentIndex = availableBrushSizes.findIndex((entry) => Number(entry.value) === drawWidth)
+    const nextWidth = Number(availableBrushSizes[(currentIndex + 1) % availableBrushSizes.length].value)
+    setDrawWidth(nextWidth)
+    drawStateRef.current.width = nextWidth
+  }
+
+  return (
+    <div className={`app ${connected ? 'app--game' : 'app--lobby'}${reducedMotion ? ' app--reduced-motion' : ''}`}>
+      {!connected && <header className="lobby-header">
+        <div>
+          <p className="eyebrow">Draw together. Win together.</p>
+          <h1>Draw Duo</h1>
+          <p className="info muted">A colorful cooperative drawing game with shared streaks and equal rewards.</p>
+        </div>
+        <div className="lobby-header-actions">
+          <button className="store-button store-button--lobby" onClick={openShop} disabled={!profile} aria-label="Open reward store"><StoreIcon /><span>Store</span></button>
+          <button className="soft-button" onClick={() => setShowSettings((value) => !value)}>Settings</button>
+        </div>
+      </header>}
+
+      {!connected && showSettings && (
+        <section className="lobby-settings" aria-label="Settings">
+          <label><input type="checkbox" checked={mute} onChange={(event) => setMute(event.target.checked)} /> Mute sounds</label>
+          <label><input type="checkbox" checked={reducedMotion} onChange={(event) => setReducedMotion(event.target.checked)} /> Reduced motion</label>
+        </section>
+      )}
+
+      {!connected && showGuide && (
+        <section className="guide-panel" aria-label="How to play">
+          <div>
+            <h2>How a duo turn works</h2>
+            <p>One player draws while their partner types the answer. Choose a difficulty, communicate through the picture, and solve together before time runs out.</p>
+            <p>Both players earn the same coins for a solved turn. Your duo streak belongs to this partnership and resets when a turn fails.</p>
+          </div>
+          <button onClick={dismissGuide} aria-label="Dismiss how to play guide">Got it</button>
+        </section>
+      )}
+
+      {!connected && profile && (
         <section className="account-strip" aria-label="Account and progression">
           {editingProfile ? (
             <>
@@ -940,34 +1182,53 @@ function App() {
           <span>{profile.wallet} coins</span>
           <span>Lifetime {profile.lifetimeCoins}</span>
           <span>Duo streak {profile.duoStreakCurrent} (best {profile.duoStreakBest})</span>
+          <span className="sync-state" role="status">{accountSync === 'ready' ? 'Account synced' : accountSync === 'loading' ? 'Syncing account...' : 'Account offline'}</span>
           {!profile.termsVersion && <button onClick={acceptTerms}>Accept alpha terms</button>}
           <button onClick={openShop}>Cosmetics</button>
         </section>
       )}
 
+      {!connected && !profile && accountSync === 'loading' && <p className="info" role="status">Loading account...</p>}
+      {!connected && !profile && accountSync === 'offline' && <p className="info" role="alert">Account sync is unavailable. You can still play, but rewards and profile changes are paused.</p>}
+
       {showShop && (
-        <section className="shop-panel" aria-label="Cosmetic catalog">
-          <div className="controls"><strong>Earn-only cosmetics</strong><button onClick={() => setShowShop(false)}>Close</button></div>
-          {catalog.map((item) => (
-            <div className="shop-item" key={item.itemId}>
-              <span>{item.name}</span><span>{item.price} coins</span>
-              <button onClick={() => purchaseItem(item.itemId)} disabled={!profile || profile.wallet < item.price}>Purchase</button>
-            </div>
-          ))}
+        <section className={`shop-panel${connected ? ' shop-panel--overlay' : ''}`} aria-label="Reward store">
+          <div className="shop-heading"><div><p className="eyebrow">Spend what you earn</p><h2>Reward Store</h2></div><button onClick={() => setShowShop(false)}>Close</button></div>
+          <p className="shop-balance">Your balance: <strong>{spendableCoins} coins</strong></p>
+          <div className="shop-grid">
+            {catalog.map((item) => {
+              const owned = ownedCosmeticIds.has(item.itemId)
+              const equipped = Object.values(profile?.equippedCosmetics ?? {}).includes(item.itemId)
+              return (
+                <article className="shop-item" key={item.itemId}>
+                  <div className={`shop-preview shop-preview--${item.type}`} style={item.type === 'draw_color' ? { backgroundColor: item.value } : undefined}>
+                    {item.type === 'brush_size' ? <span style={{ width: `${Math.min(34, Math.max(5, Number(item.value)))}px`, height: `${Math.min(34, Math.max(5, Number(item.value)))}px` }} /> : item.type === 'name_font' ? <b className={`name-font--${item.value}`}>Aa</b> : item.type === 'nameplate_border' ? <b className={`nameplate--${item.value}`}>You</b> : null}
+                  </div>
+                  <div className="shop-item__copy"><small>{catalogTypeLabel(item.type)}</small><b>{item.name}</b><span>{item.price === 0 ? 'Starter' : `${item.price} coins`}</span></div>
+                  {!owned ? <button onClick={() => purchaseItem(item.itemId)} disabled={previewGame || !profile || spendableCoins < item.price}>Unlock</button> : item.type === 'draw_color' ? (
+                    <div className="shop-equip-actions">
+                      <button onClick={() => equipItem(item.itemId, 'draw_color')} disabled={previewGame || profile?.equippedCosmetics.draw_color === item.itemId}>Brush</button>
+                      <button onClick={() => equipItem(item.itemId, 'name_color')} disabled={previewGame || profile?.equippedCosmetics.name_color === item.itemId}>Name</button>
+                    </div>
+                  ) : <button onClick={() => equipItem(item.itemId)} disabled={previewGame || equipped}>{equipped ? 'Equipped' : 'Equip'}</button>}
+                </article>
+              )
+            })}
+          </div>
         </section>
       )}
 
-      {error && <p className="muted" role="alert">{error}</p>}
-      {safetyMessage && <p className="info" role="status">{safetyMessage}</p>}
-      {status && <p className="info">Status: {status}</p>}
-
       {!connected ? (
-        <section>
-          <div className="controls">
+        <section className="lobby-actions">
+          {error && <p className="feedback-message feedback-message--error" role="alert">{error}</p>}
+          {safetyMessage && <p className="feedback-message" role="status">{safetyMessage}</p>}
+          {status && <p className="connection-status">Status: {status}</p>}
+          <div className="primary-actions">
             <button onClick={startQuick} data-testid="quick-join">Quick Partner</button>
             <button onClick={createPrivateRoom} data-testid="create-private">Create Invite</button>
+            <button className="preview-button" onClick={openPreviewGame}>Preview Game Screen</button>
           </div>
-          <div className="controls">
+          <div className="invite-entry">
             <input
               value={roomCodeInput}
               onChange={(event) => setRoomCodeInput(event.target.value.toUpperCase())}
@@ -976,37 +1237,54 @@ function App() {
             />
             <button onClick={joinPrivateRoom} data-testid="join-private">Join Invite</button>
           </div>
-          <p className="info">
-            Practice locally in the canvas above.
-          </p>
         </section>
       ) : (
-        <section>
-          <div className="info">
-            <p>
-              Code: <strong>{roomCode ?? '(private code unavailable)'}</strong> • Players:
-              {' '}
-              {connectedCount}
-            </p>
-            <p>{phaseLabel(session?.phase ?? 'WAITING')} • {session ? formatTime(session?.activeTurn?.remainingMs ?? 0) : '0:00'}</p>
-            <p>
-              Team Score: {session?.teamScore ?? 0} • Session solved: {session?.solvedTurns ?? 0}/{session?.turnsPerSession ?? 8}
-              {' '}
-              • Streak {session?.duoStreakCurrent ?? 0} (best {session?.duoStreakBest ?? 0})
-            </p>
-            <p>
-              You: {localPlayer?.wallet ?? 0} coins • Partner: {
-                session?.playerStates
-                  .filter((entry: PlayerPublicState) => entry.sessionId !== mySessionId)
-                  .map((entry) => entry.wallet)
-                  .join('')
-              } coins
-            </p>
-          </div>
+        <>
+          <div className="rotate-device" role="status">Draw Duo plays in portrait. Rotate your device to continue.</div>
+          <section className="game-shell">
+            <header className="game-hud">
+              <p className="room-meta" aria-live="polite">
+                Code: <strong>{roomCode ?? '(private code unavailable)'}</strong> &bull; Players: {connectedCount}
+              </p>
+              <div className="hud-score">
+                <span>Points</span>
+                <b>{session?.teamScore ?? 0}</b>
+              </div>
+              <div className="hud-timer" aria-label={`${phaseLabel(session?.phase ?? 'WAITING')}, ${formatTime(remainingTurnMs)} remaining`}>
+                <span>{phaseLabel(session?.phase ?? 'WAITING')}</span>
+                <b>{formatTime(remainingTurnMs)}</b>
+              </div>
+              <div className="hud-actions">
+                <button className="store-button" onClick={openShop} disabled={!profile && !previewGame} aria-label="Open reward store"><StoreIcon /></button>
+                <button className="settings-button" onClick={() => setShowSettings((value) => !value)} aria-label="Game settings" aria-expanded={showSettings}>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14 12.94a7.5 7.5 0 0 0 .05-.94 7.5 7.5 0 0 0-.05-.94l2.03-1.58-1.92-3.32-2.39.96a7.1 7.1 0 0 0-1.62-.94L14.88 3h-3.84l-.36 3.18a7.1 7.1 0 0 0-1.62.94l-2.39-.96-1.92 3.32 2.03 1.58a7.5 7.5 0 0 0-.05.94c0 .32.02.63.05.94l-2.03 1.58 1.92 3.32 2.39-.96c.5.39 1.04.7 1.62.94l.36 3.18h3.84l.36-3.18a7.1 7.1 0 0 0 1.62-.94l2.39.96 1.92-3.32-2.03-1.58ZM12.96 15.2A3.2 3.2 0 1 1 12.96 8.8a3.2 3.2 0 0 1 0 6.4Z" /></svg>
+                </button>
+              </div>
+              <div className={`partner-nameplate nameplate--${partnerNameBorder} name-font--${partnerNameFont}`} style={{ color: partnerNameColor }}>
+                <span>Partner</span><b>{partner?.displayName ?? 'Waiting for partner'}</b>
+              </div>
+            </header>
 
-          <div className="layout">
-            <section className="canvas-box">
+            {showSettings && (
+              <section className="settings-sheet" aria-label="Game settings">
+                <div className="settings-sheet__title"><b>Settings</b><button onClick={() => setShowSettings(false)}>Close</button></div>
+                <label><input type="checkbox" checked={mute} onChange={(event) => setMute(event.target.checked)} /> Mute sounds</label>
+                <label><input type="checkbox" checked={reducedMotion} onChange={(event) => setReducedMotion(event.target.checked)} /> Reduced motion</label>
+                <p>{localPlayer?.wallet ?? 0} coins &bull; Streak {session?.duoStreakCurrent ?? 0}</p>
+                {partner && <button onClick={hideAndLeave}>Hide drawing and leave</button>}
+                {partner && <button onClick={reportPartner}>Report and leave</button>}
+                {partner && <button onClick={blockPartner}>Block and leave</button>}
+                <button className="danger-button" onClick={leaveRoom}>Leave game</button>
+              </section>
+            )}
+
+            {(error || safetyMessage || status === 'Reconnecting') && (
+              <div className="game-toast" role={error ? 'alert' : 'status'}>{error ?? safetyMessage ?? status}</div>
+            )}
+
+            <div className="canvas-stage">
               <canvas
+                className="game-canvas"
                 ref={localCanvasRef}
                 onPointerDown={onPointerDown}
                 onPointerMove={onPointerMove}
@@ -1014,177 +1292,186 @@ function App() {
                 onPointerCancel={onPointerCancel}
                 data-testid="draw-canvas"
                 aria-label="Drawing canvas"
+                role="img"
+                tabIndex={0}
               />
-              <div className="controls">
-                <label>
-                  Brush
-                  <select
-                    value={drawStateRef.current.width}
-                    onChange={(event) => {
-                      const width = Number(event.target.value)
-                      drawStateRef.current.width = width
-                    }}
-                  >
-                    <option value={4}>4</option>
-                    <option value={8}>8</option>
-                    <option value={12}>12</option>
-                  </select>
-                </label>
-                <label>
-                  <select
-                    value={drawStateRef.current.color}
-                    onChange={(event) => {
-                      drawStateRef.current.color = event.target.value
-                    }}
-                  >
-                    <option value="#1a73ff">Blue</option>
-                    <option value="#111">Black</option>
-                    <option value="#c62828">Red</option>
-                    <option value="#2e7d32">Green</option>
-                    <option value="#f57c00">Orange</option>
-                    <option value="#6a1b9a">Purple</option>
-                  </select>
-                  Palette
-                </label>
-                {isDrawer && (
-                  <>
-                    <button onClick={() => drawStateRef.current.tool = 'erase'}>Eraser</button>
-                    <button onClick={() => drawStateRef.current.tool = 'draw'}>Brush</button>
-                    <button onClick={sendUndo} disabled={session?.phase !== 'DRAWING'}>Undo</button>
-                    <button onClick={sendClear} disabled={session?.phase !== 'DRAWING'}>Clear</button>
-                  </>
-                )}
-                {!isDrawer && (
-                  <button onClick={sendPass} disabled={session?.phase !== 'DRAWING'}>Pass</button>
-                )}
-              </div>
-            </section>
-
-            <aside className="sidebar">
-              {session?.phase === 'READY_CHECK' && (
-                <div className="word-banks">
-                  <p className="info">Both players must ready up.</p>
-                  <button onClick={setReady}>Ready</button>
-                </div>
-              )}
-
-              {session?.phase === 'SELECTING' && isDrawer && (
-                <div className="word-banks">
-                  <p>Pick one difficulty:</p>
-                  <div className="choice-grid">
-                    {choices.length === 0 && <p>No choices yet.</p>}
-                    {choices.map((choice) => (
-                      <button
-                        key={choice.id}
-                        onClick={() => selectChoice(choice.id)}
-                        data-testid={`choice-${choice.difficulty}`}
-                      >
-                        Difficulty {choice.difficulty}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {session?.phase === 'SELECTING' && !isDrawer && (
-                <div className="word-banks">
-                  <p>Waiting for drawer choice...</p>
-                </div>
-              )}
 
               {session?.phase === 'DRAWING' && (
-                <div className="word-banks">
-                  <p>Slots</p>
-                  <div className="slots">
-                    {slotPattern.length === 0 ? (
-                      <p className="muted">Waiting for active bank</p>
-                    ) : (
-                      groupedSlots.map((group, groupIndex) => (
-                        <div key={`${groupIndex}`}>
-                          {group.map((tileId, slotIndex) => {
-                            const absoluteSlot = (session?.activeTurn?.slotPattern.slice(0, groupIndex).reduce((sum, section) => sum + section, 0) || 0) + slotIndex
-                            return (
-                              <button
-                                key={`${groupIndex}-${slotIndex}`}
-                                className="slot"
-                                onClick={() => removeTileAt(absoluteSlot)}
-                                data-testid={`slot-${absoluteSlot}`}
-                              >
-                                {tileId ? drawBank.find((entry) => entry.id === tileId)?.letter : '•'}
-                              </button>
-                            )
-                          })}
-                          <span className="muted"> </span>
-                        </div>
-                      ))
-                    )}
+                <div
+                  className={`canvas-timer${timerIsUrgent ? ' canvas-timer--urgent' : ''}`}
+                  role="progressbar"
+                  aria-label="Drawing time remaining"
+                  aria-valuemin={0}
+                  aria-valuemax={60}
+                  aria-valuenow={remainingTurnSeconds}
+                >
+                  <div className="canvas-timer__track">
+                    <div className="canvas-timer__fill" style={{ width: `${drawingTimePercent}%` }} />
                   </div>
-
-                  <p>
-                    Tiles
-                  </p>
-                  <div className="tile-grid">
-                    {availableTiles.map((tile) => (
-                      <button
-                        key={tile.id}
-                        className="tile"
-                        disabled={selectedTileIds.includes(tile.id)}
-                        onClick={() => chooseTile(tile.id)}
-                        data-testid={`tile-${tile.id}`}
-                      >
-                        {tile.letter}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="controls">
-                    <button onClick={backspaceAction}>Backspace</button>
-                    <button onClick={clearGuess}>Clear Answer</button>
-                    <button onClick={submitGuess} disabled={selectedTileIds.length !== (session.activeTurn?.slotCount ?? 0)}>
-                      Submit
-                    </button>
-                  </div>
-                  {guessFeedback && <p className="info">{guessFeedback}</p>}
+                  <span className="canvas-timer__seconds">{remainingTurnSeconds}</span>
                 </div>
               )}
 
+              {session?.phase === 'READY_CHECK' && <div className="stage-card"><h2>Ready to draw?</h2><p>Both players need to ready up.</p></div>}
+              {session?.phase === 'WAITING' && <div className="stage-card"><h2>Invite your partner</h2><p>Share the room code shown above.</p></div>}
+              {session?.phase === 'SELECTING' && isDrawer && (
+                <div className="stage-card stage-card--choices">
+                  <p className="eyebrow">Choose your word</p>
+                  <div className="choice-grid">
+                    {choices.length === 0 && <p>Loading choices...</p>}
+                    {choices.map((choice) => (
+                      <button key={choice.id} onClick={() => selectChoice(choice.id)} data-testid={`choice-${choice.difficulty}`}>
+                        <span>{difficultyLabel(choice.difficulty)}</span>
+                        <small>{choice.difficulty === 1 ? 'Quick draw' : choice.difficulty === 2 ? 'Bigger reward' : 'Big challenge'}</small>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {session?.phase === 'SELECTING' && !isDrawer && <div className="stage-card"><h2>Word incoming</h2><p>Your partner is choosing a challenge.</p></div>}
+              {session?.phase === 'COUNTDOWN' && <div className="stage-card stage-card--countdown"><h2>Get ready!</h2><p>{isDrawer ? 'You draw. They guess.' : 'Watch closely and type the answer.'}</p></div>}
+
               {session?.phase === 'REVEAL' && lastTurnReveal && (
-                <div className="word-banks">
-                  <p>
-                    Turn {lastTurnReveal.outcome}: +{lastTurnReveal.teamPointsAwarded} team / +{lastTurnReveal.coinsAwardedPerPlayer} each
-                  </p>
-                  <p>Answer: {lastTurnReveal.revealedAnswer}</p>
+                <div className={`result-burst ${solvedReveal ? 'result-burst--solved' : 'result-burst--missed'}`} aria-live="assertive">
+                  <h2>{solvedReveal ? 'You got it!' : 'Nice try!'}</h2>
+                  {solvedReveal ? (
+                    <>
+                      <p className="reward-line">+{lastTurnReveal.teamPointsAwarded} points</p>
+                      <p>Total {session?.teamScore ?? 0}</p>
+                      <p className="streak-line">Streak {session?.duoStreakCurrent ?? 0}</p>
+                    </>
+                  ) : <p>{lastTurnReveal.outcome === 'passed' ? 'The turn was passed.' : 'Time ran out.'}</p>}
                 </div>
               )}
 
               {session?.phase === 'RESULTS' && (
-                <div className="word-banks">
-                  <p className="info">Session complete.</p>
-                  <p>Rematch or close and requeue.</p>
-                  <div className="controls">
-                    <button onClick={requestRematch}>Rematch</button>
-                    <button onClick={leaveRoom}>Close</button>
-                    {partner && <button onClick={reportPartner}>Report partner</button>}
-                    {partner && <button onClick={blockPartner}>Block partner</button>}
+                <div className="stage-card stage-card--results">
+                  <p className="eyebrow">Eight turns complete</p>
+                  <h2>Team score {session.teamScore}</h2>
+                  <p>Each player earned {session.sessionCoinsPerPlayer} coins.</p>
+                  <p>Best streak {session.duoStreakBest}</p>
+                </div>
+              )}
+            </div>
+
+            <section className="word-tray" aria-label="Answer">
+              {session?.phase === 'DRAWING' && (
+                <>
+                  {isDrawer && selectedPrompt && <p className="drawer-prompt-label">Draw: <strong>{selectedPrompt}</strong></p>}
+                  {!isDrawer && <p className={`guess-feedback${wrongGuess ? ' guess-feedback--wrong' : ''}`} aria-live="polite">{guessFeedback ?? 'Type your guess'}</p>}
+                  <div className={`word-slots${wrongGuess ? ' word-slots--wrong' : ''}`}>
+                    {visibleWordGroups.map((group, groupIndex) => (
+                      <div className="word-group" key={`word-${groupIndex}`}>
+                        {group.map((letter, slotIndex) => {
+                          const absoluteSlot = slotPattern.slice(0, groupIndex).reduce((sum, size) => sum + size, 0) + slotIndex
+                          return isDrawer ? (
+                            <span className="word-slot word-slot--answer" key={`answer-${absoluteSlot}`}>{letter}</span>
+                          ) : (
+                            <button
+                              className="word-slot"
+                              key={`guess-${absoluteSlot}`}
+                              onClick={() => removeTileAt(absoluteSlot)}
+                              disabled={!letter}
+                              aria-label={letter ? `Remove ${letter}` : `Empty letter ${absoluteSlot + 1}`}
+                              data-testid={`slot-${absoluteSlot}`}
+                            >
+                              {letter ?? ''}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    ))}
                   </div>
-                  {rematchCountdown && rematchCountdown > 0 ? (
-                    <p className="muted">Rematch window: {formatTime(rematchCountdown)}</p>
-                  ) : null}
+                </>
+              )}
+
+              {session?.phase === 'REVEAL' && lastTurnReveal && (
+                <div className={`word-slots word-slots--revealed${solvedReveal ? ' word-slots--correct' : ''}`}>
+                  {answerGroups(lastTurnReveal.revealedAnswer).map((group, groupIndex) => (
+                    <div className="word-group" key={`reveal-${groupIndex}`}>
+                      {group.map((letter, letterIndex) => <span className="word-slot word-slot--answer" key={`reveal-${groupIndex}-${letterIndex}`}>{letter}</span>)}
+                    </div>
+                  ))}
                 </div>
               )}
 
-              <p className="muted" role="status">You are: {localPlayer?.role ?? 'Unknown'}</p>
-              {partner && session?.phase !== 'RESULTS' && <div className="controls"><button onClick={hideAndLeave}>Hide drawing and leave</button><button onClick={reportPartner}>Report and leave</button><button onClick={blockPartner}>Block and leave</button></div>}
-            </aside>
-          </div>
-        </section>
-      )}
+              {session?.phase === 'RESULTS' && <p className="session-complete">Session complete.</p>}
+              {session?.phase !== 'DRAWING' && session?.phase !== 'REVEAL' && session?.phase !== 'RESULTS' && (
+                <p className="between-turn-label">{phaseLabel(session?.phase ?? 'WAITING')}</p>
+              )}
+            </section>
 
-      <section className="info muted" style={{ marginTop: '0.7rem' }}>
-        <p>
-          Public tests are run with headless browser sessions against localhost. Keep both local windows using independent contexts.
-        </p>
-      </section>
+            <section className="control-dock" aria-label={isDrawer ? 'Drawing controls' : 'Guessing controls'}>
+              {session?.phase === 'READY_CHECK' && <button className="ready-button" onClick={setReady}>Ready</button>}
+
+              {session?.phase === 'DRAWING' && isDrawer && (
+                <>
+                  <div className="palette-row">
+                    <button className="palette-arrow" onClick={() => cycleDrawColor(-1)} aria-label="Previous color">&larr;</button>
+                    <div className="color-swatches">
+                      {availableDrawColors.map((color) => (
+                        <button
+                          key={color.value}
+                          className={`color-swatch${drawColor === color.value && drawTool === 'draw' ? ' color-swatch--active' : ''}`}
+                          style={{ backgroundColor: color.value }}
+                          onClick={() => selectDrawColor(color.value)}
+                          aria-label={`${color.name} brush`}
+                          aria-pressed={drawColor === color.value && drawTool === 'draw'}
+                        />
+                      ))}
+                    </div>
+                    <button className="palette-arrow" onClick={() => cycleDrawColor(1)} aria-label="Next color">&rarr;</button>
+                  </div>
+                  <div className="drawing-actions">
+                    <button className={drawTool === 'draw' ? 'is-active' : ''} onClick={() => selectDrawTool('draw')}>Brush</button>
+                    <button className={drawTool === 'erase' ? 'is-active' : ''} onClick={() => selectDrawTool('erase')}>Eraser</button>
+                    <button onClick={cycleBrushWidth}>Size {drawWidth}</button>
+                    <button onClick={sendUndo}>Undo</button>
+                    <button onClick={() => window.confirm('Clear the entire drawing?') && sendClear()}>Clear</button>
+                  </div>
+                </>
+              )}
+
+              {session?.phase === 'DRAWING' && !isDrawer && (
+                <div className="keyboard" aria-label="Guess keyboard">
+                  {KEYBOARD_ROWS.map((row) => (
+                    <div className="keyboard-row" key={row}>
+                      {Array.from(row).map((letter) => {
+                        const tile = availableTiles.find((entry) => entry.letter === letter)
+                        return (
+                          <button
+                            className="key"
+                            key={letter}
+                            disabled={!tile}
+                            onClick={() => tile && chooseTile(tile.id)}
+                            data-testid={tile ? `tile-${tile.id}` : undefined}
+                            aria-label={`Letter ${letter}`}
+                          >
+                            {letter}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  ))}
+                  <div className="keyboard-actions">
+                    <button onClick={backspaceAction} disabled={selectedTileIds.length === 0}>Backspace</button>
+                    <button className="pass-button" onClick={sendPass}>Pass</button>
+                    <button className="enter-button" onClick={submitGuess} disabled={selectedTileIds.length !== (session.activeTurn?.slotCount ?? 0)}>Enter</button>
+                  </div>
+                </div>
+              )}
+
+              {session?.phase === 'RESULTS' && (
+                <div className="result-actions">
+                  <button onClick={requestRematch}>Rematch</button>
+                  <button onClick={leaveRoom}>Close</button>
+                  {rematchCountdown && rematchCountdown > 0 ? <span>Window {formatTime(rematchCountdown)}</span> : null}
+                </div>
+              )}
+            </section>
+          </section>
+        </>
+      )}
     </div>
   )
 }

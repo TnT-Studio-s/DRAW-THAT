@@ -1,10 +1,43 @@
 import { app, BrowserWindow, ipcMain, shell, session } from 'electron'
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const isDevelopment = process.env.DRAW_DUO_DESKTOP_DEV === '1' || !app.isPackaged
+
+function loadRuntimeConfig() {
+  if (!app.isPackaged) {
+    const backendHttpUrl = process.env.DRAW_DUO_BACKEND_HTTP_URL || 'http://127.0.0.1:2567'
+    return { backendHttpUrl, backendWsUrl: process.env.DRAW_DUO_BACKEND_WS_URL || backendHttpUrl.replace(/^http/, 'ws') }
+  }
+
+  try {
+    const configPath = path.join(process.resourcesPath, 'draw-duo-runtime.json')
+    const config = JSON.parse(readFileSync(configPath, 'utf8'))
+    if (typeof config.backendHttpUrl !== 'string' || typeof config.backendWsUrl !== 'string') throw new Error('runtime_config_shape')
+    return config
+  } catch {
+    throw new Error('runtime_config_missing')
+  }
+}
+
+const runtimeConfig = loadRuntimeConfig()
+const backendHttpUrl = runtimeConfig.backendHttpUrl
+const backendWsUrl = runtimeConfig.backendWsUrl
 let mainWindow
+
+function backendConnectSources() {
+  const sources = new Set(["'self'"])
+  for (const rawUrl of [backendHttpUrl, backendWsUrl]) {
+    const parsed = new URL(rawUrl)
+    if (!['http:', 'https:', 'ws:', 'wss:'].includes(parsed.protocol)) {
+      throw new Error('backend_url_protocol_not_allowed')
+    }
+    sources.add(parsed.origin)
+  }
+  return [...sources].join(' ')
+}
 
 function isAllowedNavigation(url) {
   return isDevelopment
@@ -45,7 +78,7 @@ function createWindow() {
 app.whenReady().then(() => {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     if (details.resourceType === 'mainFrame' || details.resourceType === 'subFrame') {
-      callback({ responseHeaders: { ...details.responseHeaders, 'Content-Security-Policy': ["default-src 'self'; connect-src 'self' http://127.0.0.1:2567 ws://127.0.0.1:2567; style-src 'self' 'unsafe-inline'; script-src 'self'" ] } })
+      callback({ responseHeaders: { ...details.responseHeaders, 'Content-Security-Policy': [`default-src 'self'; connect-src ${backendConnectSources()}; style-src 'self' 'unsafe-inline'; script-src 'self'`] } })
       return
     }
     callback({})

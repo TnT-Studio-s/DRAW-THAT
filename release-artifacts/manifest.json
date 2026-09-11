@@ -1,0 +1,21 @@
+{
+  "packageVersion": "0.1.0",
+  "generatedAt": "2026-09-10T22:20:02.087Z",
+  "artifacts": [
+    {
+      "path": "apps\\desktop\\out\\@drawduo-desktop-win32-x64\\DrawDuo.exe",
+      "sha256": "685c80920d8ecd12ea157fc2bf456a92969939b6f44071ebcb5598e410bf2fe0",
+      "bytes": 246070784
+    },
+    {
+      "path": "apps\\desktop\\out\\make\\squirrel.windows\\x64\\@drawduo-desktop-0.2.0 Setup.exe",
+      "sha256": "f6d5074576fdad4952488dabf71fe1309a4db5c95db4c627a9c3eb46acd9adbf",
+      "bytes": 153601536
+    },
+    {
+      "path": "apps\\desktop\\out\\make\\squirrel.windows\\x64\\draw_duo-0.2.0-full.nupkg",
+      "sha256": "932ac72598cce9d01f4a31849cbb635125e89c9f49219a3f5d27b651a0923554",
+      "bytes": 152845956
+    }
+  ]
+}

@@ -37,15 +37,22 @@ describe('integration: Phase 3 account, progression, and safety API', () => {
 
     const catalog = await request('/api/progression/catalog', 'phase3-a')
     expect(catalog.status).toBe(200)
-    expect((await catalog.json()).items).toHaveLength(3)
+    expect((await catalog.json()).items).toEqual(expect.arrayContaining([expect.objectContaining({ itemId: 'color-red', price: 0 }), expect.objectContaining({ itemId: 'brush-medium', price: 0 }), expect.objectContaining({ itemId: 'font-bubble', price: 24 })]))
 
     const purchase = await request('/api/progression/purchase', 'phase3-a', { method: 'POST', body: JSON.stringify({ itemId: 'frame-sunrise', requestId: 'phase3-purchase-1' }) })
     expect(purchase.status).toBe(409)
     expect((await purchase.json()).error).toBe('insufficient_balance')
 
+    const recovery = await request('/api/account/recover', 'phase3-a', { method: 'POST' })
+    expect(recovery.status).toBe(200)
+    expect((await recovery.json()).recovered).toBe(true)
+
     const report = await request('/api/safety/report', 'phase3-a', { method: 'POST', body: JSON.stringify({ subjectPlayerId: accountB.playerId, category: 'harassment', sessionId: 'session-test', turnId: 'turn-test' }) })
     expect(report.status).toBe(201)
     expect((await report.json()).reportId).toBeTruthy()
+
+    const ordinaryPlayerReports = await request('/api/safety/admin/reports', 'phase3-a')
+    expect(ordinaryPlayerReports.status).toBe(403)
 
     const block = await request('/api/safety/block', 'phase3-a', { method: 'POST', body: JSON.stringify({ blockedPlayerId: accountB.playerId }) })
     expect(block.status).toBe(204)

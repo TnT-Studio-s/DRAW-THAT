@@ -57,10 +57,13 @@ describe('security: role and message-boundary checks', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
     })
-    const { roomId } = await create.json()
+    const { roomId, roomCode } = await create.json() as { roomId: string; roomCode: string }
 
-    const roomA = await clientA.joinById(roomId, { userId: 'u1' })
-    const roomB = await clientB.joinById(roomId, { userId: 'u2' })
+    const roomA = await clientA.joinById(roomId, { userId: 'u1', roomCode })
+    const intruderClient = new Client(`ws://127.0.0.1:${port}`)
+    await expect(intruderClient.joinById(roomId, { userId: 'intruder' })).rejects.toThrow()
+
+    const roomB = await clientB.joinById(roomId, { userId: 'u2', roomCode })
 
     roomA.send('input', { type: 'ready' })
     roomB.send('input', { type: 'ready' })

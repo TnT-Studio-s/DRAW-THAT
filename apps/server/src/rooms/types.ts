@@ -1,4 +1,4 @@
-import type { Difficulty, TurnOutcome } from '@drawduo/protocol'
+import type { CosmeticEquipSlot, Difficulty, TurnOutcome } from '@drawduo/protocol'
 
 export interface PromptEntry {
   id: string
@@ -48,8 +48,12 @@ export interface TurnState {
 export interface PlayerState {
   sessionId: string
   userId: string
+  playerId: string
   role: 'drawer' | 'guesser'
   wallet: number
+  displayName: string
+  ownedCosmetics: string[]
+  equippedCosmetics: Partial<Record<CosmeticEquipSlot, string>>
   connected: boolean
   ready: boolean
   rematchVoted: boolean

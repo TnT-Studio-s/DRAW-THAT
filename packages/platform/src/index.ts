@@ -20,6 +20,7 @@ export interface PlatformBridge {
   capabilities?: string[]
   requestFullscreen?: () => Promise<void>
   exitFullscreen?: () => Promise<void>
+  getAccessToken?: () => Promise<string | null>
 }
 
 export interface ClientRuntimeConfig {
@@ -52,6 +53,10 @@ export function getClientRuntimeConfig(): ClientRuntimeConfig {
     rulesVersion: RULES_VERSION,
     capabilities: bridge?.capabilities ?? ['canvas', 'letter-bank', 'rematch'],
   }
+}
+
+export async function getClientAccessToken(): Promise<string | null> {
+  return await currentBridge()?.getAccessToken?.() ?? null
 }
 
 export interface PlatformAdapter {
