@@ -3,7 +3,7 @@ services:
     name: draw-that-backend
     runtime: node
     plan: free
-    buildCommand: npm ci && npm run build:server
+    buildCommand: npm ci --include=dev && npm run build:server
     startCommand: npm run db:migrate && npm run -w apps/server start
     healthCheckPath: /api/health
     envVars:
