@@ -16,3 +16,6 @@ coverage
 playwright-report
 test-results
 .neon
+
+# Local Netlify folder
+.netlify

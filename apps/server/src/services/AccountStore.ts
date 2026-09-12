@@ -1,5 +1,6 @@
-import { Pool, type PoolClient } from 'pg'
+import { type Pool, type PoolClient } from 'pg'
 import { COSMETIC_CATALOG, STARTER_COSMETIC_IDS, cosmeticSupportsSlot, defaultCosmeticSlot, type CosmeticCatalogItem, type CosmeticEquipSlot } from '@drawduo/protocol'
+import { getDatabasePool } from './Database.js'
 
 export type AccountProfile = {
   playerId: string
@@ -332,7 +333,9 @@ class PostgresAccountStore implements AccountStore {
 let store: AccountStore | undefined
 export function getAccountStore(): AccountStore {
   if (store) return store
-  if (process.env.DATABASE_URL) store = new PostgresAccountStore(new Pool({ connectionString: process.env.DATABASE_URL }))
+  if (process.env.DATABASE_URL) {
+    store = new PostgresAccountStore(getDatabasePool())
+  }
   else if (process.env.DRAW_DUO_TEST_MODE === '1' || process.env.NODE_ENV === 'development') store = new MemoryAccountStore()
   else throw new Error('database_required_outside_development')
   return store
