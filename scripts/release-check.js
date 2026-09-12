@@ -59,7 +59,7 @@ const forbiddenMonetization = /admob|google-mobile-ads|billingclient|rewarded.?a
 for (const file of inspectedFiles) {
   const content = readFileSync(file, 'utf8')
   if (forbiddenMonetization.test(content)) blockers.push(`monetization_path_present:${path.relative(root, file)}`)
-  if (/x-draw-duo-user|DRAW_DUO_TEST_MODE|SUPABASE_ACCESS_TOKEN/.test(content)) blockers.push(`test_identity_or_secret_present:${path.relative(root, file)}`)
+  if (/x-draw-duo-user|DRAW_DUO_TEST_MODE|SUPABASE_ACCESS_TOKEN|NEON_API_KEY|NEON_AUTH_COOKIE_SECRET/.test(content)) blockers.push(`test_identity_or_secret_present:${path.relative(root, file)}`)
 }
 
 const result = blockers.length === 0 ? 'ready_for_owner_review' : 'blocked'

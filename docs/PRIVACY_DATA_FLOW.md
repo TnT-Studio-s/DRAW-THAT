@@ -20,7 +20,7 @@ Device and connection data: platform identifier, connection epoch, device label 
 
 The React client communicates with the Colyseus game service over the configured HTTP/WebSocket backend. The browser bundle contains protocol and public rules only; server prompts, answer keys, database credentials, signing material, and moderation secrets stay server-side.
 
-Supabase Auth and PostgreSQL are planned production destinations for identity and persistent records. They are intentionally not configured in this workspace, so no provider or database evidence is claimed.
+Neon Auth and PostgreSQL are the selected production destinations for identity and persistent records. Neon Auth is provisioned for the linked production branch; application migrations and live provider/database evidence still require the deployment environment and are not claimed here.
 
 Windows Electron and Android Capacitor wrappers expose only the typed platform bridge needed by the client. No arbitrary shell, filesystem, account secret, ad SDK, or billing SDK is exposed.
 

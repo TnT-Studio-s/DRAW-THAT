@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent, type ReactNode, type RefObject } from 'react'
 import { Client, Room } from 'colyseus.js'
 import {
   type ServerMessage,
@@ -19,7 +19,8 @@ import {
   type CosmeticCatalogItem,
   type CosmeticEquipSlot,
 } from '@drawduo/protocol'
-import { getClientAccessToken, getClientRuntimeConfig } from '@drawduo/platform'
+import { getClientRuntimeConfig } from '@drawduo/platform'
+import { getAuthUser, getClientAccessToken, neonAuthConfigured, signInWithEmail, signOutNeonAuth, signUpWithEmail, type AuthUser } from './auth'
 import './styles.css'
 
 type DrawEvent = ServerMessageDrawEvent
@@ -121,6 +122,107 @@ type Stroke = {
   points: StrokePoint[]
 }
 
+type SessionModalAction = 'hide' | 'report' | 'block' | 'leave'
+type ReportCategory = 'harassment' | 'inappropriate_drawing' | 'spam' | 'other'
+type AuthMode = 'sign-in' | 'sign-up'
+
+const REPORT_CATEGORIES: Array<{ value: ReportCategory; label: string }> = [
+  { value: 'harassment', label: 'Harassment' },
+  { value: 'inappropriate_drawing', label: 'Inappropriate drawing' },
+  { value: 'spam', label: 'Spam' },
+  { value: 'other', label: 'Other' },
+]
+
+type ModalRequest =
+  | { kind: 'clear'; sessionId: string; turnId: string }
+  | { kind: 'session-action'; action: SessionModalAction; sessionId: string; turnId: string | null; partnerId: string | null; reportCategory: ReportCategory | null }
+  | { kind: 'purchase'; itemId: string }
+  | { kind: 'auth'; mode: AuthMode }
+
+type ModalProps = {
+  title: string
+  eyebrow?: string
+  children: ReactNode
+  footer?: ReactNode
+  onClose?: () => void
+  fallbackFocusRef?: RefObject<HTMLElement | null>
+}
+
+function Modal({ title, eyebrow, children, footer, onClose, fallbackFocusRef }: ModalProps) {
+  const modalRef = useRef<HTMLElement>(null)
+  const titleId = useId()
+  const bodyId = useId()
+
+  useEffect(() => {
+    const modal = modalRef.current
+    if (!modal) return
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const focusable = () => Array.from(modal.querySelectorAll<HTMLElement>('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+    focusable()[0]?.focus()
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && onClose) {
+        event.preventDefault()
+        onClose()
+        return
+      }
+      if (event.key !== 'Tab') return
+      const elements = focusable()
+      if (elements.length === 0) {
+        event.preventDefault()
+        modal.focus()
+        return
+      }
+      const first = elements[0]
+      const last = elements[elements.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      if (previousFocus?.isConnected) previousFocus.focus()
+      else if (fallbackFocusRef?.current?.isConnected) fallbackFocusRef.current.focus()
+    }
+  }, [fallbackFocusRef, onClose])
+
+  return (
+    <div className="app-modal__backdrop">
+      <section
+        ref={modalRef}
+        className="app-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={bodyId}
+        tabIndex={-1}
+      >
+        {eyebrow && <p className="eyebrow">{eyebrow}</p>}
+        <h2 id={titleId}>{title}</h2>
+        <div id={bodyId} className="app-modal__body">{children}</div>
+        {footer && <div className="app-modal__actions">{footer}</div>}
+      </section>
+    </div>
+  )
+}
+
+function sessionModalCopy(action: SessionModalAction) {
+  switch (action) {
+    case 'hide':
+      return { title: 'Hide drawing and leave?', message: 'The drawing will be hidden and this session will end for you.', confirmLabel: 'Hide and leave' }
+    case 'report':
+      return { title: 'Report partner and leave?', message: 'This will report the partner and leave the session.', confirmLabel: 'Report and leave' }
+    case 'block':
+      return { title: 'Block partner and leave?', message: 'This will block the partner and leave the session.', confirmLabel: 'Block and leave' }
+    case 'leave':
+      return { title: 'Leave game?', message: 'You will leave the current session.', confirmLabel: 'Leave game' }
+  }
+}
+
 function phaseLabel(phase: SessionPublicState['phase']) {
   switch (phase) {
     case 'WAITING':
@@ -178,6 +280,12 @@ function App() {
   const [drawWidth, setDrawWidth] = useState(12)
   const [drawTool, setDrawTool] = useState<'draw' | 'erase'>('draw')
   const [appState, setAppState] = useState<AppState>({ userId: '', sessionId: '' })
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null)
+  const [authBusy, setAuthBusy] = useState(false)
+  const [authError, setAuthError] = useState<string | null>(null)
+  const [authEmail, setAuthEmail] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
+  const [authDisplayName, setAuthDisplayName] = useState('')
   const [profile, setProfile] = useState<AccountProfile | null>(null)
   const [catalog, setCatalog] = useState<CatalogItem[]>([])
   const [showShop, setShowShop] = useState(false)
@@ -186,6 +294,7 @@ function App() {
   const [safetyMessage, setSafetyMessage] = useState<string | null>(null)
   const [accountSync, setAccountSync] = useState<'loading' | 'ready' | 'offline'>('loading')
   const [showGuide, setShowGuide] = useState(true)
+  const [modal, setModal] = useState<ModalRequest | null>(null)
   const connectionEpochRef = useRef(1)
   const intentionalLeaveRef = useRef(false)
   const reconnectingRef = useRef(false)
@@ -194,6 +303,8 @@ function App() {
   const clientRef = useRef<Client | null>(null)
   const roomRef = useRef<Room | null>(null)
   const localCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const appRootRef = useRef<HTMLDivElement>(null)
+  const viewStateRef = useRef<{ connected: boolean; sessionId: string | null }>({ connected: false, sessionId: null })
   const stateReceivedAtRef = useRef(Date.now())
   const [, setClockTick] = useState(0)
 
@@ -232,6 +343,36 @@ function App() {
   const partnerNameColor = cosmeticById(partner?.appearance?.name_color)?.value ?? '#111111'
   const partnerNameFont = cosmeticById(partner?.appearance?.name_font)?.value ?? 'plain'
   const partnerNameBorder = cosmeticById(partner?.appearance?.nameplate_border)?.value ?? 'plain'
+  viewStateRef.current = { connected, sessionId: session?.sessionId ?? null }
+  const sessionModal = modal?.kind === 'session-action' ? modal : null
+  const purchaseModalItem = modal?.kind === 'purchase' ? catalog.find((item) => item.itemId === modal.itemId) : null
+  const authModal = modal?.kind === 'auth' ? modal : null
+  const clearModalOpen = Boolean(
+    modal?.kind === 'clear'
+      && modal.sessionId === session?.sessionId
+      && modal.turnId === session?.activeTurn?.turnId
+      && session?.phase === 'DRAWING'
+      && isDrawer
+      && connected,
+  )
+  const sessionModalOpen = Boolean(
+    sessionModal
+      && sessionModal.sessionId === session?.sessionId
+      && sessionModal.turnId === (session?.activeTurn?.turnId ?? null)
+      && sessionModal.partnerId === (partner?.userId ?? null)
+      && connected,
+  )
+  const purchaseModalOpen = Boolean(
+    purchaseModalItem
+      && showShop
+      && profile
+      && !previewGame
+      && !ownedCosmeticIds.has(purchaseModalItem.itemId)
+      && spendableCoins >= purchaseModalItem.price,
+  )
+  const authModalOpen = Boolean(authModal && neonAuthConfigured)
+  const modalOpen = clearModalOpen || sessionModalOpen || purchaseModalOpen || authModalOpen
+  const sessionModalDetails = sessionModal ? sessionModalCopy(sessionModal.action) : null
 
   const rematchTargetMs = session?.rematchDeadline ?? null
   const rematchCountdown = rematchTargetMs ? rematchTargetMs - Date.now() : null
@@ -241,6 +382,22 @@ function App() {
       setAppState((state) => ({ ...state, userId: localUserId }))
     }
   }, [localUserId, appState.userId])
+
+  useEffect(() => {
+    let active = true
+    void getAuthUser().then((user) => {
+      if (!active) return
+      setAuthUser(user)
+      if (user) setAppState((state) => ({ ...state, userId: user.id }))
+    }).catch(() => {
+      if (active) setAuthUser(null)
+    })
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    if (modal && !modalOpen) setModal(null)
+  }, [modal, modalOpen])
 
   useEffect(() => {
     if (!appState.userId) return
@@ -468,6 +625,11 @@ function App() {
     if (!session?.activeTurn || !isDrawer || !connected) {
       return
     }
+    if (previewGame) {
+      strokeHistoryRef.current = []
+      resetCanvas()
+      return
+    }
     sendMessage({
       type: 'clearCanvas',
       turnId: session.activeTurn.turnId,
@@ -475,7 +637,99 @@ function App() {
       connectionEpoch: connectionEpochRef.current,
       generation: session.activeTurn.boardGeneration,
     })
-  }, [connected, isDrawer, sendMessage, session])
+  }, [connected, isDrawer, previewGame, resetCanvas, sendMessage, session])
+
+  const openAuthModal = useCallback((mode: AuthMode) => {
+    setAuthError(null)
+    setAuthPassword('')
+    setModal({ kind: 'auth', mode })
+  }, [])
+
+  const closeModal = useCallback(() => {
+    setModal(null)
+    setAuthError(null)
+    setAuthPassword('')
+  }, [])
+
+  const toggleAuthMode = useCallback(() => {
+    setAuthError(null)
+    setAuthPassword('')
+    setModal((current) => current?.kind === 'auth' ? { ...current, mode: current.mode === 'sign-in' ? 'sign-up' : 'sign-in' } : current)
+  }, [])
+
+  const submitAuth = useCallback(async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!authModal || authBusy) return
+    const email = authEmail.trim()
+    const displayName = authDisplayName.trim()
+    if (!email || !authPassword || (authModal.mode === 'sign-up' && !displayName)) {
+      setAuthError('Complete all fields first.')
+      return
+    }
+    setAuthBusy(true)
+    setAuthError(null)
+    try {
+      const user = authModal.mode === 'sign-in'
+        ? await signInWithEmail(email, authPassword)
+        : await signUpWithEmail(email, authPassword, displayName)
+      if (!user) throw new Error(authModal.mode === 'sign-up' ? 'Account created. Check your email, then sign in.' : 'Sign-in did not return an account.')
+      setAuthUser(user)
+      setAppState((state) => ({ ...state, userId: user.id }))
+      setModal(null)
+      setAuthPassword('')
+      setStatus(authModal.mode === 'sign-in' ? 'Signed in' : 'Account created')
+    } catch (err) {
+      setAuthError((err as Error).message)
+    } finally {
+      setAuthBusy(false)
+    }
+  }, [authBusy, authDisplayName, authEmail, authModal, authPassword])
+
+  const signOut = useCallback(async () => {
+    try {
+      await signOutNeonAuth()
+      setAuthUser(null)
+      setProfile(null)
+      setAccountSync('offline')
+      setAppState((state) => ({ ...state, userId: localUserId }))
+      setStatus('Signed out')
+      setError(null)
+    } catch (err) {
+      setError(`Sign out failed: ${(err as Error).message}`)
+    }
+  }, [localUserId])
+
+  const requireAuth = useCallback(() => {
+    if (!neonAuthConfigured || authUser || import.meta.env.DEV) return true
+    openAuthModal('sign-in')
+    return false
+  }, [authUser, openAuthModal])
+
+  const confirmClear = useCallback(() => {
+    setModal(null)
+    sendClear()
+  }, [sendClear])
+
+  const openClearConfirm = useCallback(() => {
+    if (!session?.activeTurn || !isDrawer || !connected) return
+    setModal({
+      kind: 'clear',
+      sessionId: session.sessionId,
+      turnId: session.activeTurn.turnId,
+    })
+  }, [connected, isDrawer, session])
+
+  const openSessionAction = useCallback((action: SessionModalAction) => {
+    if (!session || !connected || (action !== 'leave' && !partner?.userId)) return
+    setModal({
+      kind: 'session-action',
+      action,
+      sessionId: session.sessionId,
+      turnId: session.activeTurn?.turnId ?? null,
+      partnerId: partner?.userId ?? null,
+      reportCategory: action === 'report' ? 'other' : null,
+    })
+  }, [connected, partner?.userId, session])
 
   const setReady = useCallback(() => {
     if (!connected) {
@@ -535,6 +789,7 @@ function App() {
     intentionalLeaveRef.current = true
     roomRef.current?.leave()
     roomRef.current = null
+    setModal(null)
     setSession(null)
     setConnected(false)
     setPreviewGame(false)
@@ -770,10 +1025,12 @@ function App() {
     })
     const json = res.status === 204 ? null : await res.json()
     if (!res.ok) {
-      throw new Error(json.error || `HTTP ${res.status}`)
+      const message = json.error || `HTTP ${res.status}`
+      if (message === 'authentication_required') openAuthModal('sign-in')
+      throw new Error(message)
     }
     return json as T
-  }, [appState.userId])
+  }, [appState.userId, openAuthModal])
 
   const acceptTerms = useCallback(async () => {
     try {
@@ -838,6 +1095,21 @@ function App() {
     }
   }, [callApi, sendMessage])
 
+  const openPurchaseConfirm = useCallback((itemId: string) => {
+    const item = catalog.find((entry) => entry.itemId === itemId)
+    if (!item || previewGame || !profile || ownedCosmeticIds.has(itemId) || spendableCoins < item.price) return
+    setModal({ kind: 'purchase', itemId })
+  }, [catalog, ownedCosmeticIds, previewGame, profile, spendableCoins])
+
+  const confirmPurchase = useCallback(() => {
+    if (modal?.kind !== 'purchase' || !purchaseModalOpen || !purchaseModalItem) {
+      setModal(null)
+      return
+    }
+    setModal(null)
+    void purchaseItem(purchaseModalItem.itemId)
+  }, [modal, purchaseItem, purchaseModalItem, purchaseModalOpen])
+
   const equipItem = useCallback(async (itemId: string, slot?: CosmeticEquipSlot) => {
     try {
       setProfile(await callApi<AccountProfile>('/api/progression/equip', { method: 'POST', body: JSON.stringify({ itemId, slot }) }))
@@ -852,38 +1124,67 @@ function App() {
     leaveRoom()
   }, [leaveRoom, resetCanvas])
 
-  const reportPartner = useCallback(async () => {
-    if (!partner) return
+  const reportPartner = useCallback(async (category: ReportCategory, target: { partnerId: string; sessionId: string; turnId: string | null }) => {
+    const { partnerId, sessionId, turnId } = target
+    if (!partnerId) return
+    hideAndLeave()
     try {
-      await callApi('/api/safety/report', { method: 'POST', body: JSON.stringify({ subjectPlayerId: partner.userId, category: 'other', sessionId: session?.sessionId, turnId: session?.activeTurn?.turnId }) })
-      setSafetyMessage('Report submitted. The drawing was hidden and the session was closed.')
-      hideAndLeave()
+      await callApi('/api/safety/report', { method: 'POST', body: JSON.stringify({ subjectPlayerId: partnerId, category, sessionId, turnId }) })
+      if (!viewStateRef.current.connected && viewStateRef.current.sessionId === null) {
+        setSafetyMessage('Report submitted. The drawing was hidden and the session was closed.')
+      }
     } catch (err) {
-      setError(`Report failed: ${(err as Error).message}`)
+      if (!viewStateRef.current.connected && viewStateRef.current.sessionId === null) {
+        setError(`Report failed: ${(err as Error).message}`)
+      }
     }
-  }, [callApi, hideAndLeave, partner, session])
+  }, [callApi, hideAndLeave])
 
-  const blockPartner = useCallback(async () => {
-    if (!partner) return
+  const blockPartner = useCallback(async (partnerId: string) => {
+    if (!partnerId) return
+    hideAndLeave()
     try {
-      await callApi('/api/safety/block', { method: 'POST', body: JSON.stringify({ blockedPlayerId: partner.userId }) })
-      setSafetyMessage('Partner blocked. The drawing was hidden and the session was closed.')
-      hideAndLeave()
+      await callApi('/api/safety/block', { method: 'POST', body: JSON.stringify({ blockedPlayerId: partnerId }) })
+      if (!viewStateRef.current.connected && viewStateRef.current.sessionId === null) {
+        setSafetyMessage('Partner blocked. The drawing was hidden and the session was closed.')
+      }
     } catch (err) {
-      setError(`Block failed: ${(err as Error).message}`)
+      if (!viewStateRef.current.connected && viewStateRef.current.sessionId === null) {
+        setError(`Block failed: ${(err as Error).message}`)
+      }
     }
-  }, [callApi, hideAndLeave, partner])
+  }, [callApi, hideAndLeave])
+
+  const confirmSessionAction = useCallback(() => {
+    if (modal?.kind !== 'session-action' || !sessionModalOpen) {
+      setModal(null)
+      return
+    }
+    const action = modal.action
+    setModal(null)
+    if (action === 'hide') {
+      hideAndLeave()
+    } else if (action === 'report') {
+      if (modal.partnerId) void reportPartner(modal.reportCategory ?? 'other', { partnerId: modal.partnerId, sessionId: modal.sessionId, turnId: modal.turnId })
+    } else if (action === 'block') {
+      if (modal.partnerId) void blockPartner(modal.partnerId)
+    } else {
+      leaveRoom()
+    }
+  }, [blockPartner, hideAndLeave, leaveRoom, modal, reportPartner, sessionModalOpen])
 
   const createPrivateRoom = useCallback(async () => {
+    if (!requireAuth()) return
     const payload = await callApi<{ roomId: string; roomCode: string }>(`/api/lobby/private/create`, {
       method: 'POST',
       body: JSON.stringify({}),
     })
     setRoomCodeInput(payload.roomCode)
     await joinByRoomId(payload.roomId, payload.roomCode)
-  }, [callApi, joinByRoomId])
+  }, [callApi, joinByRoomId, requireAuth])
 
   const joinPrivateRoom = useCallback(async () => {
+    if (!requireAuth()) return
     if (!roomCodeInput.trim()) {
       setError('Enter a room code')
       return
@@ -893,15 +1194,16 @@ function App() {
       body: JSON.stringify({ code: roomCodeInput.trim() }),
     })
     await joinByRoomId(payload.roomId)
-  }, [callApi, roomCodeInput, joinByRoomId])
+  }, [callApi, roomCodeInput, joinByRoomId, requireAuth])
 
   const startQuick = useCallback(async () => {
+    if (!requireAuth()) return
     const payload = await callApi<{ roomId: string; roomCode: string | null }>(`/api/match/quick`, {
       method: 'POST',
       body: JSON.stringify({ userId: appState.userId, buildId: runtimeConfig.buildId, protocolMajor: runtimeConfig.protocolMajor, language: 'en', platformId: runtimeConfig.platformId, capabilities: runtimeConfig.capabilities }),
     })
     await joinByRoomId(payload.roomId)
-  }, [appState.userId, callApi, joinByRoomId])
+  }, [appState.userId, callApi, joinByRoomId, requireAuth])
 
   const applyPointerPosition = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = localCanvasRef.current
@@ -1030,6 +1332,9 @@ function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (modalOpen || (event.target instanceof HTMLElement && event.target.closest('[role="dialog"]'))) {
+        return
+      }
       if (!session || !session.activeTurn || isDrawer || session.phase !== 'DRAWING') {
         return
       }
@@ -1071,7 +1376,7 @@ function App() {
     return () => {
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [chooseTile, clearGuess, isDrawer, session, selectedTileIds, submitGuess])
+  }, [chooseTile, clearGuess, isDrawer, modalOpen, session, selectedTileIds, submitGuess])
 
   const groupedSlots = useMemo(() => {
     if (!slotPattern.length) {
@@ -1134,7 +1439,7 @@ function App() {
   }
 
   return (
-    <div className={`app ${connected ? 'app--game' : 'app--lobby'}${reducedMotion ? ' app--reduced-motion' : ''}`}>
+    <div ref={appRootRef} tabIndex={-1} className={`app ${connected ? 'app--game' : 'app--lobby'}${reducedMotion ? ' app--reduced-motion' : ''}`}>
       {!connected && <header className="lobby-header">
         <div>
           <p className="eyebrow">Draw together. Win together.</p>
@@ -1142,6 +1447,7 @@ function App() {
           <p className="info muted">A colorful cooperative drawing game with shared streaks and equal rewards.</p>
         </div>
         <div className="lobby-header-actions">
+          {neonAuthConfigured && (authUser ? <button className="soft-button" onClick={signOut}>Sign out</button> : <button className="soft-button" onClick={() => openAuthModal('sign-in')}>Sign in</button>)}
           <button className="store-button store-button--lobby" onClick={openShop} disabled={!profile} aria-label="Open reward store"><StoreIcon /><span>Store</span></button>
           <button className="soft-button" onClick={() => setShowSettings((value) => !value)}>Settings</button>
         </div>
@@ -1189,6 +1495,7 @@ function App() {
       )}
 
       {!connected && !profile && accountSync === 'loading' && <p className="info" role="status">Loading account...</p>}
+      {!connected && neonAuthConfigured && !authUser && <p className="info account-auth-prompt">Sign in to join live games and save your progress.</p>}
       {!connected && !profile && accountSync === 'offline' && <p className="info" role="alert">Account sync is unavailable. You can still play, but rewards and profile changes are paused.</p>}
 
       {showShop && (
@@ -1205,7 +1512,7 @@ function App() {
                     {item.type === 'brush_size' ? <span style={{ width: `${Math.min(34, Math.max(5, Number(item.value)))}px`, height: `${Math.min(34, Math.max(5, Number(item.value)))}px` }} /> : item.type === 'name_font' ? <b className={`name-font--${item.value}`}>Aa</b> : item.type === 'nameplate_border' ? <b className={`nameplate--${item.value}`}>You</b> : null}
                   </div>
                   <div className="shop-item__copy"><small>{catalogTypeLabel(item.type)}</small><b>{item.name}</b><span>{item.price === 0 ? 'Starter' : `${item.price} coins`}</span></div>
-                  {!owned ? <button onClick={() => purchaseItem(item.itemId)} disabled={previewGame || !profile || spendableCoins < item.price}>Unlock</button> : item.type === 'draw_color' ? (
+                  {!owned ? <button onClick={() => openPurchaseConfirm(item.itemId)} disabled={previewGame || !profile || spendableCoins < item.price}>Unlock</button> : item.type === 'draw_color' ? (
                     <div className="shop-equip-actions">
                       <button onClick={() => equipItem(item.itemId, 'draw_color')} disabled={previewGame || profile?.equippedCosmetics.draw_color === item.itemId}>Brush</button>
                       <button onClick={() => equipItem(item.itemId, 'name_color')} disabled={previewGame || profile?.equippedCosmetics.name_color === item.itemId}>Name</button>
@@ -1271,10 +1578,10 @@ function App() {
                 <label><input type="checkbox" checked={mute} onChange={(event) => setMute(event.target.checked)} /> Mute sounds</label>
                 <label><input type="checkbox" checked={reducedMotion} onChange={(event) => setReducedMotion(event.target.checked)} /> Reduced motion</label>
                 <p>{localPlayer?.wallet ?? 0} coins &bull; Streak {session?.duoStreakCurrent ?? 0}</p>
-                {partner && <button onClick={hideAndLeave}>Hide drawing and leave</button>}
-                {partner && <button onClick={reportPartner}>Report and leave</button>}
-                {partner && <button onClick={blockPartner}>Block and leave</button>}
-                <button className="danger-button" onClick={leaveRoom}>Leave game</button>
+                {partner && <button onClick={() => openSessionAction('hide')}>Hide drawing and leave</button>}
+                {partner && <button onClick={() => openSessionAction('report')}>Report and leave</button>}
+                {partner && <button onClick={() => openSessionAction('block')}>Block and leave</button>}
+                <button className="danger-button" onClick={() => openSessionAction('leave')}>Leave game</button>
               </section>
             )}
 
@@ -1427,7 +1734,7 @@ function App() {
                     <button className={drawTool === 'erase' ? 'is-active' : ''} onClick={() => selectDrawTool('erase')}>Eraser</button>
                     <button onClick={cycleBrushWidth}>Size {drawWidth}</button>
                     <button onClick={sendUndo}>Undo</button>
-                    <button onClick={() => window.confirm('Clear the entire drawing?') && sendClear()}>Clear</button>
+                    <button onClick={openClearConfirm}>Clear</button>
                   </div>
                 </>
               )}
@@ -1464,13 +1771,109 @@ function App() {
               {session?.phase === 'RESULTS' && (
                 <div className="result-actions">
                   <button onClick={requestRematch}>Rematch</button>
-                  <button onClick={leaveRoom}>Close</button>
+                  <button onClick={() => openSessionAction('leave')}>Close</button>
                   {rematchCountdown && rematchCountdown > 0 ? <span>Window {formatTime(rematchCountdown)}</span> : null}
                 </div>
               )}
             </section>
           </section>
         </>
+      )}
+      {authModalOpen && authModal && (
+        <Modal
+          title={authModal.mode === 'sign-in' ? 'Welcome back' : 'Create your account'}
+          eyebrow="Draw Duo account"
+          onClose={closeModal}
+          fallbackFocusRef={appRootRef}
+        >
+          <form className="auth-form" onSubmit={submitAuth}>
+            {authModal.mode === 'sign-up' && (
+              <label className="app-modal__field">
+                <span>Display name</span>
+                <input value={authDisplayName} onChange={(event) => setAuthDisplayName(event.target.value)} maxLength={32} autoComplete="name" required />
+              </label>
+            )}
+            <label className="app-modal__field">
+              <span>Email</span>
+              <input type="email" value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} autoComplete="email" required />
+            </label>
+            <label className="app-modal__field">
+              <span>Password</span>
+              <input type="password" value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} minLength={8} autoComplete={authModal.mode === 'sign-in' ? 'current-password' : 'new-password'} required />
+            </label>
+            {authError && <p className="auth-form__error" role="alert">{authError}</p>}
+            <div className="auth-form__actions">
+              <button type="submit" disabled={authBusy}>{authBusy ? 'Working...' : authModal.mode === 'sign-in' ? 'Sign in' : 'Create account'}</button>
+              <button type="button" className="modal-button--secondary" onClick={closeModal} disabled={authBusy}>Cancel</button>
+            </div>
+            <button type="button" className="auth-form__switch" onClick={toggleAuthMode} disabled={authBusy}>
+              {authModal.mode === 'sign-in' ? 'Need an account? Create one' : 'Already have an account? Sign in'}
+            </button>
+          </form>
+        </Modal>
+      )}
+      {clearModalOpen && (
+        <Modal
+          title="Clear drawing"
+          eyebrow="Please confirm"
+          footer={(
+            <>
+              <button type="button" className="modal-button--secondary" onClick={closeModal}>Cancel</button>
+              <button type="button" className="modal-button--danger" onClick={confirmClear}>Clear</button>
+            </>
+          )}
+          onClose={closeModal}
+          fallbackFocusRef={appRootRef}
+        >
+          <p>Clear the entire drawing?</p>
+        </Modal>
+      )}
+      {sessionModalOpen && sessionModal && sessionModalDetails && (
+        <Modal
+          title={sessionModalDetails.title}
+          eyebrow="Please confirm"
+          footer={(
+            <>
+              <button type="button" className="modal-button--secondary" onClick={closeModal}>Cancel</button>
+              <button type="button" className="modal-button--danger" onClick={confirmSessionAction}>{sessionModalDetails.confirmLabel}</button>
+            </>
+          )}
+          onClose={closeModal}
+          fallbackFocusRef={appRootRef}
+        >
+          <p>{sessionModalDetails.message}</p>
+          {sessionModal.action === 'report' && (
+            <label className="app-modal__field">
+              <span>Reason</span>
+              <select
+                value={sessionModal.reportCategory ?? 'other'}
+                onChange={(event) => {
+                  const category = event.target.value as ReportCategory
+                  setModal((current) => current?.kind === 'session-action' ? { ...current, reportCategory: category } : current)
+                }}
+              >
+                {REPORT_CATEGORIES.map((category) => <option key={category.value} value={category.value}>{category.label}</option>)}
+              </select>
+            </label>
+          )}
+        </Modal>
+      )}
+      {purchaseModalOpen && purchaseModalItem && (
+        <Modal
+          title={`Unlock ${purchaseModalItem.name}?`}
+          eyebrow="Reward store"
+          footer={(
+            <>
+              <button type="button" className="modal-button--secondary" onClick={closeModal}>Cancel</button>
+              <button type="button" onClick={confirmPurchase}>Unlock</button>
+            </>
+          )}
+          onClose={closeModal}
+          fallbackFocusRef={appRootRef}
+        >
+          <p>Spend <strong>{purchaseModalItem.price} coins</strong> to unlock this cosmetic?</p>
+          <p>You will have <strong>{spendableCoins - purchaseModalItem.price} coins</strong> left.</p>
+        </Modal>
       )}
     </div>
   )
