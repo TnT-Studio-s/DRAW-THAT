@@ -316,7 +316,7 @@ class PostgresAccountStore implements AccountStore {
       const wallets = await client.query<{ player_id: string; balance: number }>(`SELECT player_id, balance FROM wallets WHERE player_id = ANY($1::uuid[])`, [ids])
       if (amount) {
         for (const wallet of wallets.rows) {
-          await client.query(`INSERT INTO wallet_ledger (player_id, delta, reason, turn_id, idempotency_key, balance_after) VALUES ($1, $2, 'turn_reward', $3, $4, $5) ON CONFLICT (idempotency_key) DO NOTHING`, [wallet.player_id, amount, input.turnId, `${input.resolutionId}:${wallet.player_id}`, wallet.balance])
+          await client.query(`INSERT INTO wallet_ledger (player_id, delta, reason, turn_id, idempotency_key, balance_after) VALUES ($1, $2, 'turn_reward', $3, $4, $5) ON CONFLICT (player_id, idempotency_key) DO NOTHING`, [wallet.player_id, amount, input.turnId, `${input.resolutionId}:${wallet.player_id}`, wallet.balance])
         }
       }
       const walletA = wallets.rows.find((row) => row.player_id === input.playerA)?.balance ?? 0
