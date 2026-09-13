@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@capacitor/app": "^8.1.1",
     "@drawduo/drawing": "file:../../packages/drawing",
     "@drawduo/platform": "file:../../packages/platform",
     "@drawduo/protocol": "file:../../packages/protocol",

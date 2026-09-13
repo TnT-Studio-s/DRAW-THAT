@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent, type ReactNode, type RefObject } from 'react'
 import { Client, Room } from 'colyseus.js'
+import { App as CapacitorApp } from '@capacitor/app'
 import {
   type ServerMessage,
   type ServerMessageDrawEvent,
@@ -317,6 +318,78 @@ function App() {
   const pointsRef = useRef<StrokePoint[]>([])
   const strokeHistoryRef = useRef<Stroke[]>([])
   const sessionRef = useRef<SessionPublicState | null>(null)
+  const nativeBackStateRef = useRef({
+    connected,
+    editingProfile,
+    modal,
+    previewGame,
+    sessionActive: Boolean(session),
+    showGuide,
+    showSettings,
+    showShop,
+  })
+  nativeBackStateRef.current = {
+    connected,
+    editingProfile,
+    modal,
+    previewGame,
+    sessionActive: Boolean(session),
+    showGuide,
+    showSettings,
+    showShop,
+  }
+
+  useEffect(() => {
+    if (runtimeConfig.platformId !== 'android') {
+      return
+    }
+
+    let disposed = false
+    let removeListener: (() => Promise<void>) | undefined
+
+    void CapacitorApp.addListener('backButton', () => {
+      const state = nativeBackStateRef.current
+
+      if (state.modal) {
+        setModal(null)
+        return
+      }
+      if (state.showShop) {
+        setShowShop(false)
+        return
+      }
+      if (state.showSettings) {
+        setShowSettings(false)
+        return
+      }
+      if (state.editingProfile) {
+        setEditingProfile(false)
+        return
+      }
+      if (state.showGuide) {
+        setShowGuide(false)
+        return
+      }
+      if (state.connected || state.previewGame || state.sessionActive) {
+        return
+      }
+
+      void CapacitorApp.exitApp()
+    }).then((listener) => {
+      if (disposed) {
+        void listener.remove()
+        return
+      }
+      removeListener = () => listener.remove()
+    })
+
+    return () => {
+      disposed = true
+      if (removeListener) {
+        void removeListener()
+      }
+    }
+  }, [])
   const boardGenerationRef = useRef(0)
   const drawStateRef = useRef({
     color: '#1a73ff',
