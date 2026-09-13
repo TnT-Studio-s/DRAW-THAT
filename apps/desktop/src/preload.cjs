@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+const { contextBridge, ipcRenderer } = require('electron')
 
 const httpUrl = process.env.DRAW_DUO_BACKEND_HTTP_URL || 'http://127.0.0.1:2567'
 const wsUrl = process.env.DRAW_DUO_BACKEND_WS_URL || httpUrl.replace(/^http/, 'ws')

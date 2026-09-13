@@ -1,5 +1,16 @@
 # Test evidence matrix
 
+## Mixed-platform evidence - 2026-09-12
+
+| Check | Result | Evidence |
+|---|---|---|
+| Android creates private invite and Windows joins | PASS | Physically completed with the installed Samsung S25 Ultra and Windows client against the same local Colyseus server. |
+| Remote live strokes across role swap | PASS HEADLESS | `npx playwright test tests/e2e/live-drawing.spec.ts` passed with nonwhite remote-canvas pixel assertions in both directions before and after Pass/role alternation. |
+| Web TypeScript after live-stroke repair | PASS | `npm run -w apps/web typecheck`. |
+| Corrected Android debug APK build/install/launch | PASS | `npm run build:android:debug` and `npm run test:android` completed on the authorized Samsung S25 Ultra. |
+| Active-room Android Back/edge gesture containment | BLOCKED | Real Back returned to Samsung Launcher and discarded the room after two bounded native interception cycles. No `FATAL EXCEPTION` occurred. See `REVIEW_PACKET.md`. |
+| Full eight-turn packaged Windows-to-Android session | NOT RUN TO COMPLETION | Physical pairing reached gameplay, but the Android edge-gesture activity exit prevented complete-session acceptance. |
+
 Phase 1 evidence below reflects the final automated run. Rows without direct coverage remain NOT RUN; the matrix does not infer native/device or persistence evidence from web tests.
 
 Headless automation: `npm run test:headless` covers the terminal-only lint, type, unit, integration, security, server/web build, and two-browser E2E layers. `npm run test:headless:native` adds artifact generation only. Its JSON report deliberately leaves Android device, Electron runtime, packaged Windows-to-Android, and visual acceptance as `not_run`.

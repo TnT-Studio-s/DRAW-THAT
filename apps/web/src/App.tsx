@@ -316,6 +316,7 @@ function App() {
   const pointerIdRef = useRef<number | null>(null)
   const pointsRef = useRef<StrokePoint[]>([])
   const strokeHistoryRef = useRef<Stroke[]>([])
+  const sessionRef = useRef<SessionPublicState | null>(null)
   const boardGenerationRef = useRef(0)
   const drawStateRef = useRef({
     color: '#1a73ff',
@@ -530,7 +531,8 @@ function App() {
   }, [drawPath, resetCanvas])
 
   const applyRemoteEvent = useCallback((event: DrawEvent) => {
-    if (!session || !session.activeTurn || event.turnId !== session.activeTurn.turnId) {
+    const activeTurn = sessionRef.current?.activeTurn
+    if (!activeTurn || event.turnId !== activeTurn.turnId) {
       return
     }
     if (event.generation < boardGenerationRef.current) {
@@ -565,7 +567,7 @@ function App() {
       })
       drawPath(event.points, event.color, event.width, event.tool)
     }
-  }, [drawPath, resetCanvas, rerenderFromHistory, session])
+  }, [drawPath, resetCanvas, rerenderFromHistory])
 
   const sendMessage = useCallback((payload: unknown) => {
     const room = roomRef.current
@@ -580,7 +582,7 @@ function App() {
       return
     }
     const batchSize = 64
-    const generation = session.activeTurn.boardGeneration
+    const generation = boardGenerationRef.current
     for (let i = 0; i < points.length; i += batchSize) {
       const chunk = points.slice(i, i + batchSize)
       if (chunk.length < 2) {
@@ -621,7 +623,7 @@ function App() {
       turnId: session.activeTurn.turnId,
       actionId: crypto.randomUUID(),
       connectionEpoch: connectionEpochRef.current,
-      generation: session.activeTurn.boardGeneration,
+      generation: boardGenerationRef.current,
     })
   }, [connected, isDrawer, sendMessage, session])
 
@@ -639,7 +641,7 @@ function App() {
       turnId: session.activeTurn.turnId,
       actionId: crypto.randomUUID(),
       connectionEpoch: connectionEpochRef.current,
-      generation: session.activeTurn.boardGeneration,
+      generation: boardGenerationRef.current,
     })
   }, [connected, isDrawer, previewGame, resetCanvas, sendMessage, session])
 
@@ -806,6 +808,11 @@ function App() {
     setSelectedTileIds([])
   }, [])
 
+  const cancelInvite = useCallback(() => {
+    leaveRoom()
+    setStatus('Invite canceled')
+  }, [leaveRoom])
+
   const setBoardFromSession = useCallback((next: SessionPublicState | null) => {
     if (!next?.activeTurn) {
       setChoices([])
@@ -848,6 +855,7 @@ function App() {
       leaveRoom()
       return
     }
+    sessionRef.current = next
     setSession((current) => {
       if (!current || current.activeTurn?.turnId !== next.activeTurn?.turnId) {
         setSelectedTileIds([])
@@ -1649,7 +1657,13 @@ function App() {
               )}
 
               {session?.phase === 'READY_CHECK' && <div className="stage-card"><h2>Ready to draw?</h2><p>Both players need to ready up.</p></div>}
-              {session?.phase === 'WAITING' && <div className="stage-card"><h2>Invite your partner</h2><p>Share the room code shown above.</p></div>}
+              {!previewGame && !partner && (
+                <div className="stage-card">
+                  <h2>Invite your partner</h2>
+                  <p>Share the room code shown above.</p>
+                  <button type="button" onClick={cancelInvite} data-testid="cancel-invite">Cancel Invite</button>
+                </div>
+              )}
               {session?.phase === 'SELECTING' && isDrawer && (
                 <div className="stage-card stage-card--choices">
                   <p className="eyebrow">Choose your word</p>

@@ -1,5 +1,13 @@
 # Resume handoff
 
+## Immediate handoff - 2026-09-12
+
+The live-stroke client defect is fixed in `apps/web/src/App.tsx`: `applyRemoteEvent` reads the current active turn through `sessionRef`, avoiding the empty session captured when Colyseus listeners were first registered. `tests/e2e/live-drawing.spec.ts` proves remote canvas pixels in both directions across the first role swap and passed.
+
+Do not conflate that fix with the remaining Android lifecycle blocker. Samsung device logs prove an edge-swipe initiated predictive Back and `finishActivity`; no app crash occurred. Two native Back interception cycles failed the same device check and were reverted. Read `REVIEW_PACKET.md` before another attempt. The safe temporary test workaround is to begin phone drawing strokes away from the extreme left and right edges.
+
+Next focused diagnostic command after instrumenting the native callback path: build/install, create an active invite, run `adb shell input keyevent 4`, then confirm `topResumedActivity` remains `com.drawduo.playtest/.MainActivity` and the same invite is still rendered.
+
 ## Current state
 
 Phase 1 implementation is complete for the web/server playable outcome. The authoritative room and protocol flow is implemented; native packaging/device validation is intentionally still pending.
