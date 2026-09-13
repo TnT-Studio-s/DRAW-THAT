@@ -58,7 +58,7 @@ Headless automation: `npm run test:headless` covers the terminal-only lint, type
 | P02 | Lost response after commit/retry cannot duplicate rewards | 3 | NOT RUN | Not implemented |
 | P03 | Unknown commit outcome is reconciled rather than blindly retried as new | 3 | NOT RUN | Not implemented |
 | P04 | Concurrent purchases cannot overspend or duplicate ownership | 3 | NOT RUN | Not implemented |
-| P05 | Same linked account on another platform recovers real progress | 3 | PARTIAL | Verified-subject recovery endpoint and profile state exist; real Supabase new-device/linking evidence remains open. Headless recovery assertion passes. |
+| P05 | Same linked account on another platform recovers real progress | 3 | PARTIAL | Verified-subject recovery endpoint and profile state exist; real Neon Auth new-device/linking evidence remains open. Headless recovery assertion passes. |
 | P06 | Separate installations without linking are not falsely merged | 3 | NOT RUN | Not implemented |
 | P07 | Client balance tampering changes no authoritative data | 3 | NOT RUN | Not implemented |
 | P08 | Backup restoration recovers committed persistent records | 4 | NOT RUN | Not implemented |
@@ -110,7 +110,7 @@ Headless automation: `npm run test:headless` covers the terminal-only lint, type
 | Local disposable auth | `x-draw-duo-user` in test mode | PASS | Explicitly development/test-only; not provider identity evidence. |
 | PostgreSQL migration | `npm run db:migrate` | PENDING | Requires `DATABASE_URL` and a disposable test database. |
 | PostgreSQL reward/purchase races | Real PostgreSQL integration | NOT RUN | Requires database environment; memory adapter is not equivalent evidence. |
-| Provider auth and account linking | Supabase-configured integration | NOT RUN | Requires approved development provider configuration and secrets. |
+| Provider auth and account linking | Neon Auth-configured integration | NOT RUN | Requires approved development provider configuration and secrets. |
 | Visible profile/shop | Headless e2e smoke | PARTIAL | Profile, catalog, ownership, equip, guide, sync, and accessibility states render; dedicated purchase/equip browser interaction and new-device refresh remain. |
 | Report/block UI and moderation review | Dedicated safety flow | PARTIAL | Client hide/report/block actions and server primitives exist; dedicated browser interaction evidence and authorized staff workflow remain. |
 
@@ -158,7 +158,7 @@ Headless automation: `npm run test:headless` covers the terminal-only lint, type
 | Account-store ownership/idempotency/duo streak | PASS in memory unit path | Repeat ownership with a fresh request does not debit again; the same request ID is valid for a different player; duo-specific streak reaches eight. Real PostgreSQL race evidence remains unrun. |
 | Evidence removal | PASS in memory unit path | Removed retained evidence is no longer retrievable. Live PostgreSQL deletion/audit evidence remains unrun. |
 | Full repaired headless regression | PASS | `npm run test:headless`: lint, workspace typechecks, 15 unit tests, 7 integration tests, 5 security tests, server/web builds, and one eight-turn browser E2E all passed. |
-| Database/provider/content/native/load gates | NOT RUN | Requires deferred PostgreSQL/Supabase configuration, approved production content, packaged clients/devices, and measured environments. |
+| Database/provider/content/native/load gates | NOT RUN | Requires PostgreSQL migration, live Neon Auth acceptance, approved production content, packaged clients/devices, and measured environments. |
 
 ## Phase 6 distribution evidence - 2026-09-10
 
@@ -170,7 +170,7 @@ Headless automation: `npm run test:headless` covers the terminal-only lint, type
 | Android debug artifact | PASS | `npm run test:headless:native` completed Android sync and `build:android:debug` using `C:\Users\antho\AppData\Local\Android\Sdk`; the explicit APK path was produced. |
 | Android release signing guard | PASS IN CODE, BLOCKED IN ENVIRONMENT | `build:android:release` requires protected keystore variables and production HTTPS/WSS, uses `bundleRelease`, and correctly stopped before building when absent. |
 | Production endpoint/runtime guard | PASS IN CODE, BLOCKED IN ENVIRONMENT | Windows release rejected the local endpoint; packaged runtime configuration is generated only during the build and removed from the source tree afterward. |
-| Development identity exclusion | PASS | The rebuilt web bundle contains none of `x-draw-duo-user`, `DRAW_DUO_TEST_MODE`, or `SUPABASE_ACCESS_TOKEN`. |
+| Development identity exclusion | PASS | The rebuilt web bundle contains none of `x-draw-duo-user`, `DRAW_DUO_TEST_MODE`, `SUPABASE_ACCESS_TOKEN`, `NEON_API_KEY`, or `NEON_AUTH_COOKIE_SECRET`. |
 | Ads and billing boundary | PASS: ABSENT/DISABLED | No AdMob, billing, rewarded-ad, or watch-an-ad path is present in current web, Android, or Windows dependencies; no monetization evidence is being claimed beyond that absence. |
 | Store, privacy, and rollback material | READY FOR OWNER INPUT | Templates and runbooks exist; final legal links, IDs, branding, licenses, publisher credentials, and policy declarations are not invented. |
 | Release approval and actual publishing | NOT AUTHORIZED | No store upload, Steam upload, public matchmaking enablement, or release approval was performed. |

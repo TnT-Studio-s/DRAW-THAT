@@ -19,14 +19,14 @@ Active phase: Phase 6 distribution preparation is in progress after the Phase 5 
 Actual implementation repository: `C:\Users\antho\Sync Develop Codex\Draw That`; branch/commit tracking is not configured in this workspace.
 Actual model/status: Spark was the requested implementation model and exhausted its usage; no stronger-model subagent or model switch was used. A callable session-status source was not available to independently confirm the UI model label.
 Implemented evidence: real Colyseus room, private friend-code flow, private 1/2/3 choices, server timers, live strokes, letter tiles, equal solved-turn coins, shared streak, eight alternating turns, results, rematch reset, headless two-browser e2e.
-Next action: obtain owner/reviewer content and staging approvals, then exercise the Phase 4 operations and closed-beta gates. Return to the deferred PostgreSQL/Supabase verification when local PostgreSQL and provider configuration are available; retain the Phase 2 mixed-platform checks as an explicit parallel acceptance item.
+Next action: obtain owner/reviewer content and staging approvals, then exercise the Phase 4 operations and closed-beta gates. Return to the deferred PostgreSQL/Neon Auth verification when the deployment environment is available; retain the Phase 2 mixed-platform checks as an explicit parallel acceptance item.
 
 ## Required reporting states
 
 NOT_STARTED / IN_PROGRESS / BLOCKED / CODE_COMPLETE_DEVICE_PENDING / VERIFIED / RELEASE_APPROVED.
 
 Native cross-platform session evidence: Android APK install/launch smoke PASS; packaged Windows-to-Android gameplay is NOT RUN.
-Production identity and transactional reward evidence: Phase 3 local development adapter PASS; live Supabase/PostgreSQL evidence NOT RUN.
+Production identity and transactional reward evidence: Phase 3 local development adapter PASS; live Neon Auth/PostgreSQL evidence NOT RUN.
 Public deployment permission: NOT GRANTED.
 Store publishing permission: NOT GRANTED.
 
@@ -39,7 +39,7 @@ Headless regression command: `npm run test:headless` runs lint, type checking, u
 
 ## Phase 3 checkpoint - 2026-09-10
 
-The current code slice is complete for local/test-mode account, progression, safety, and durable-session wiring. Production completion is not claimed: real PostgreSQL migration/transaction evidence, Supabase provider auth/linking/recovery, profile edit/equip UI, in-game hide/report controls, and authorized moderation review still require implementation or external configuration.
+The current code slice is complete for local/test-mode account, progression, safety, and durable-session wiring. Production completion is not claimed: real PostgreSQL migration/transaction evidence, Neon Auth provider auth/linking/recovery, profile edit/equip UI, in-game hide/report controls, and authorized moderation review still require implementation or external configuration.
 
 The room now creates a persistent session when the second player joins, records each turn in the same Postgres transaction as both wallet credits and the duo streak update, and closes the session at results/disposal. Configured production persistence also requires a verified bearer token for room admission; development/test identity remains explicitly gated.
 ## Phase 2 status - 2026-09-10
@@ -67,20 +67,20 @@ Evidence:
 
 ## Phase 3 status - 2026-09-10
 
-Phase 3 is `IN_PROGRESS`. The first durable account/progression/safety slice, including the staff-only moderation review boundary, is implemented and covered by local development tests, but real PostgreSQL and Supabase provider evidence is still pending. This does not change the separate Phase 2 mixed-platform acceptance status.
+Phase 3 is `IN_PROGRESS`. The first durable account/progression/safety slice, including the staff-only moderation review boundary, is implemented and covered by local development tests, but real PostgreSQL and Neon Auth provider evidence is still pending. This does not change the separate Phase 2 mixed-platform acceptance status.
 
 Implemented:
 
 - `migrations/001_phase3_accounts.sql` defines players, account links, wallets, append-only ledger, duos, sessions, turns, turn resolutions, cosmetic catalog/ownership, blocks, reports, and moderation audit records.
 - `apps/server/src/services/AccountStore.ts` provides a development-only in-memory adapter and a parameterized PostgreSQL adapter with transactional purchase and turn-resolution idempotency primitives.
-- `apps/server/src/services/AuthService.ts` accepts verified Supabase-compatible JWTs when configured and permits the disposable `x-draw-duo-user` identity only in development/test mode.
+- `apps/server/src/services/AuthService.ts` accepts verified Neon Auth JWTs when configured and permits the disposable `x-draw-duo-user` identity only in development/test mode.
 - Server APIs cover account profile/terms/deletion, cosmetic catalog/purchase, report, block, and unblock flows.
 - Room joins hydrate account wallets and turn rewards commit through the account store instead of being awarded only in room memory.
 - The shared client displays server-owned wallet/lifetime/streak state, terms acceptance, editable validated display name, and the earn-only cosmetic catalog.
 - Active/results sessions expose report, block, and hide-and-leave actions; the server resolves room subject references to canonical player IDs before safety writes.
 - Staff-only moderation routes list open/reviewed reports and record a review action plus reason; the Postgres adapter writes the audit action and reviewed status in one transaction.
 - Cosmetic ownership is returned as sanitized profile state, with server-validated equip-by-owned-item for both memory and Postgres adapters.
-- `/api/account/recover` provides the documented verified-subject recovery entry point; provider upgrade/linking still requires configured Supabase Auth and has not been claimed as live evidence.
+- `/api/account/recover` provides the documented verified-subject recovery entry point; provider upgrade/linking still requires configured Neon Auth and has not been claimed as live evidence.
 - Phase 4 adds `/api/ready`, a protected admission drain control, and the staging operations runbook in `docs/OPERATIONS_RUNBOOK.md`; active room logic is not changed by the drain control.
 - Phase 4 now records bounded drawing evidence for staff review, extends reported evidence to the draft 30-day window, logs staff evidence access, and purges expired evidence hourly. The SQL migration is prepared but not executed without `DATABASE_URL`.
 - Phase 4 product UI now includes first-use gameplay guidance, honest account-sync/offline states, live partner/reconnecting indicators, focus-visible controls, and a Phase 4 beta label without a stale model claim.
@@ -97,14 +97,14 @@ Phase 3 evidence:
 Remaining Phase 3 gates:
 
 - `DATABASE_URL` and a disposable PostgreSQL instance are required for migration and real transaction tests; this is the current Phase 3 blocker.
-- Supabase project/JWKS/issuer/audience configuration is required for live provider-auth and account-linking tests.
+- Neon Auth project/JWKS/issuer/audience configuration is required for live provider-auth and account-linking tests.
 - Provider-backed account linking/upgrade, real new-device recovery, and live operator review evidence remain to be completed. Cosmetic ownership/equip is now wired through the client and server. Safety controls are now wired in the client, and ordinary-player denial of the staff report queue has narrow integration coverage; the dedicated browser interaction test is still pending.
 
 ## Model schedule and deferred infrastructure - 2026-09-10
 
 Phase 4 internal implementation is complete aside from the deferred database/provider and human beta gates. Phase 5 is active under the current Luna Max session for bounded review and hardening; changes remain surgical and are covered by targeted tests. Phase 6 remains a later Spark-led packaging and distribution phase, with narrow review for sensitive store/payment code.
 
-The owner chose to defer local PostgreSQL/Supabase setup temporarily. `DATABASE_URL`, PostgreSQL migration/transaction evidence, and live Supabase provider-auth/linking/recovery evidence remain open gates and must not be reported as passed. This does not prevent Phase 5 code hardening from continuing in the disposable development/test adapter.
+The owner chose to defer PostgreSQL migration and live Neon Auth acceptance temporarily. `DATABASE_URL`, PostgreSQL migration/transaction evidence, and live Neon Auth provider-auth/linking/recovery evidence remain open gates and must not be reported as passed. This does not prevent Phase 5 code hardening from continuing in the disposable development/test adapter.
 
 ## Phase 5 status - 2026-09-10
 
@@ -144,7 +144,7 @@ Persistence code now scopes idempotency to each player, prevents repeat-owned pu
 
 Verification evidence: `npm run typecheck` passed. `npm run test:security` passed 5 tests. The final `npm run test:headless` passed lint, all workspace typechecks, 15 unit tests, 7 integration tests, 5 security tests, server/web builds, and the eight-turn browser E2E. Expected Colyseus warnings are generated when tests intentionally reject unauthorized admission or do not register irrelevant message listeners.
 
-Deferred external gates remain unchanged: live PostgreSQL migrations/concurrency/recovery and a database-backed one-active-session constraint; Supabase JWT/account-linking; owner-approved production content; Electron/native mixed-platform gameplay; measured load; staging; and closed beta. The review item claiming guess/pass action IDs were not recorded was re-checked and withdrawn because the existing `wasSeen` path already records accepted action IDs.
+Deferred external gates remain unchanged: live PostgreSQL migrations/concurrency/recovery and a database-backed one-active-session constraint; Neon Auth JWT/account-linking; owner-approved production content; Electron/native mixed-platform gameplay; measured load; staging; and closed beta. The review item claiming guess/pass action IDs were not recorded was re-checked and withdrawn because the existing `wasSeen` path already records accepted action IDs.
 
 ## Phase 6 status - 2026-09-10
 

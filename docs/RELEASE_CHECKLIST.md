@@ -28,7 +28,7 @@ Phase 6 internal release preparation is implemented. The rows below distinguish 
 | Android debug artifact | PASS | `npm run build:android:debug` with the documented Android SDK; explicit `app-debug.apk` path printed. |
 | Android release artifact | BLOCKED CORRECTLY | `npm run build:android:release` requires production HTTPS/WSS, protected keystore variables, and emits `app-release.aab` only after signing. |
 | Runtime endpoint safety | PASS IN CODE | Packaged Windows runtime reads generated config; release builds reject localhost and non-TLS endpoints. |
-| Production web identity boundary | PASS | Release bundle scan found no development identity header, test-mode marker, or static Supabase access token. |
+| Production web identity boundary | PASS | Release bundle scan found no development identity header, test-mode marker, or static provider/API access token. |
 | Checksums and release manifest | IMPLEMENTED | `npm run release:manifest` writes `release-artifacts/manifest.json` and `release-artifacts/checksums.sha256` for release-shaped artifacts. |
 | Store/privacy/rollback material | READY FOR OWNER INPUT | See `docs/STORE_METADATA.md`, `docs/PRIVACY_DATA_FLOW.md`, and `docs/ROLLBACK_RUNBOOK.md`. |
 

@@ -6,7 +6,7 @@ Windows + Android first, eventual Steam distribution, iOS much later. One cross-
 
 ## Defaults chosen by this plan
 
-Node/TypeScript Colyseus service, PostgreSQL and Supabase Auth; eight-turn live sessions; equal 1/2/3 personal coin rewards; shared successful-turn streak; letter bank with four decoys; 10-second selection, 3-second countdown, 60-second active turn and 30-second reconnect allowance. These are explicit implementation/tuning recommendations, not claims of measured optimality or separate publisher approval.
+Node/TypeScript Colyseus service, PostgreSQL and Neon Auth; eight-turn live sessions; equal 1/2/3 personal coin rewards; shared successful-turn streak; letter bank with four decoys; 10-second selection, 3-second countdown, 60-second active turn and 30-second reconnect allowance. These are explicit implementation/tuning recommendations, not claims of measured optimality or separate publisher approval.
 
 No competitive ranking or purchasable gameplay advantages. No ads on Steam. Android advertising/billing is optional owner-approved later integration, not a requirement for initial coding. Public strangers require real auth, reward integrity and moderation operations.
 

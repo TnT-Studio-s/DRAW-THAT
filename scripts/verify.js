@@ -37,7 +37,7 @@ for (const cmd of requiredCommands) {
 }
 
 if (Number(phase) >= 3 && !process.env.DATABASE_URL) blockers.push('DATABASE_URL is required for PostgreSQL migration and persistence evidence.')
-if (Number(phase) >= 3 && (!process.env.SUPABASE_JWKS_URL || !process.env.SUPABASE_JWT_ISSUER || !process.env.SUPABASE_JWT_AUDIENCE)) blockers.push('Supabase JWT provider configuration is required for live authentication evidence.')
+if (Number(phase) >= 3 && (!process.env.NEON_AUTH_JWKS_URL || !(process.env.NEON_AUTH_BASE_URL || process.env.NEON_AUTH_URL))) blockers.push('Neon Auth JWKS and base URL configuration is required for live authentication evidence.')
 if (Number(phase) >= 4) blockers.push('Owner-approved production content and staging/beta evidence require external review and execution.')
 if (Number(phase) >= 5) blockers.push('Native mixed-platform gameplay, database failure/restore, and measured load gates require external environments.')
 if (Number(phase) >= 6) blockers.push('Final app IDs, signing material, production endpoint, publisher access, store forms, and explicit upload approval require owner action.')
