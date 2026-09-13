@@ -53,6 +53,7 @@ export class DrawDuoRoom extends Room {
   private openingDrawerIndex = randomInt(0, 2)
   private endAfterReveal = false
   private privateRoom = false
+  private privateRoomCode: string | null = null
 
   onCreate() {
     registerRoom(this.roomId, this)
@@ -79,9 +80,12 @@ export class DrawDuoRoom extends Room {
     })
     if (!hello.success) throw new Error('invalid_client_handshake')
     if (hello.data.protocolMajor !== PROTOCOL_MAJOR || hello.data.buildId < MIN_SUPPORTED_BUILD_ID) throw new Error('update_required')
-    const privateCode = getCodeByRoom(this.roomId)
-    if (privateCode && !validateCodeForRoom(this.roomId, options.roomCode)) throw new Error('private_admission_required')
-    if (privateCode) this.privateRoom = true
+    const privateCode = await getCodeByRoom(this.roomId)
+    if (privateCode && !await validateCodeForRoom(this.roomId, options.roomCode)) throw new Error('private_admission_required')
+    if (privateCode) {
+      this.privateRoom = true
+      this.privateRoomCode = privateCode
+    }
     const disconnectedSeat = [...this.players.values()].find((entry) => entry.userId === hello.data.userId && !entry.connected)
     if ([...this.players.values()].some((entry) => entry.userId === hello.data.userId && entry.connected)) throw new Error('user_already_in_room')
     if (this.players.size >= this.maxClients && !disconnectedSeat) throw new Error('room_full')
@@ -89,7 +93,7 @@ export class DrawDuoRoom extends Room {
     const account = await getAccountStore().ensurePlayer(hello.data.userId)
     if (account.status !== 'active') throw new Error('account_unavailable')
     if (privateCode) {
-      const ownerPlayerId = getInviteOwner(privateCode)
+      const ownerPlayerId = await getInviteOwner(privateCode)
       if (ownerPlayerId && ownerPlayerId !== account.playerId && await getAccountStore().areBlocked(ownerPlayerId, account.playerId)) throw new Error('blocked_user')
     }
     this.players.set(client.sessionId, {
@@ -112,7 +116,10 @@ export class DrawDuoRoom extends Room {
       await this.startPersistentSession(accounts[0].playerId, accounts[1].playerId)
       this.phase = 'READY_CHECK'
       this.readyDeadline = Date.now() + this.rules.readySeconds * 1000
-      if (privateCode) releaseCode(privateCode)
+      if (privateCode) {
+        await releaseCode(privateCode)
+        this.privateRoomCode = null
+      }
     }
     setTimeout(() => {
       if (this.players.size === 2) this.sendState()
@@ -498,7 +505,7 @@ export class DrawDuoRoom extends Room {
       board: this.phase === 'REVEAL' || this.phase === 'RESULTS' ? this.turn.board : [],
     } : null
     return {
-      roomCode: getCodeByRoom(this.roomId), phase: this.phase, sessionId: this.activeSessionId ?? this.roomId.toString(), turnsPerSession: this.rules.turnsPerSession, turnIndex: this.turnIndex,
+      roomCode: this.privateRoomCode, phase: this.phase, sessionId: this.activeSessionId ?? this.roomId.toString(), turnsPerSession: this.rules.turnsPerSession, turnIndex: this.turnIndex,
       teamScore: this.teamScore, solvedTurns: this.solvedTurns, sessionCoinsPerPlayer: this.sessionCoinsPerPlayer, duoStreakCurrent: this.duoStreakCurrent, duoStreakBest: this.duoStreakBest,
       playerStates: [...this.players.values()].map((player) => ({ sessionId: player.sessionId, userId: player.playerId, role: player.role, wallet: player.sessionId === sessionId ? player.wallet : null, connected: player.connected, ready: player.ready, rematch: player.rematchVoted, displayName: player.displayName, appearance: player.equippedCosmetics })),
       activeTurn, rematchDeadline: this.rematchDeadline, startedAt: this.startedAt, version: `${CLIENT_BUILD_ID}:${RULES_VERSION}`,

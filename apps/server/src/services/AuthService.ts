@@ -10,14 +10,23 @@ function environmentValue(name: string) {
   return value || undefined
 }
 
+function authOrigin(baseUrl: string | undefined) {
+  if (!baseUrl) return undefined
+  try {
+    return new URL(baseUrl).origin
+  } catch {
+    return baseUrl
+  }
+}
+
 export async function authenticateRequest(request: Request): Promise<RequestIdentity> {
   const authorization = request.header('authorization')
   if (authorization?.startsWith('Bearer ')) {
     const token = authorization.slice('Bearer '.length).trim()
     const jwksUrl = environmentValue('NEON_AUTH_JWKS_URL')
     const authBaseUrl = environmentValue('NEON_AUTH_BASE_URL') ?? environmentValue('NEON_AUTH_URL')
-    const issuer = environmentValue('NEON_AUTH_ISSUER') ?? authBaseUrl
-    const audience = environmentValue('NEON_AUTH_AUDIENCE') ?? authBaseUrl
+    const issuer = environmentValue('NEON_AUTH_ISSUER') ?? authOrigin(authBaseUrl)
+    const audience = environmentValue('NEON_AUTH_AUDIENCE') ?? authOrigin(authBaseUrl)
     if (!jwksUrl || !issuer || !audience) throw new Error('auth_provider_not_configured')
     const jwks = jwksCache.get(jwksUrl) ?? createRemoteJWKSet(new URL(jwksUrl))
     jwksCache.set(jwksUrl, jwks)

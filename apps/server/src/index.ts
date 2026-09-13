@@ -14,6 +14,7 @@ import { authenticateRequest } from './services/AuthService.js'
 import { getAccountStore, type AccountProfile } from './services/AccountStore.js'
 import { getEvidenceStore } from './services/EvidenceStore.js'
 import { findProjectRoot } from './services/ProjectPaths.js'
+import { PostgresDriver, PostgresPresence } from './services/ColyseusPostgres.js'
 
 const port = Number(process.env.PORT || 2567)
 const moderatorSubjects = new Set(
@@ -22,11 +23,10 @@ const moderatorSubjects = new Set(
     .map((value) => value.trim())
     .filter(Boolean),
 )
-const app = express()
-app.use(cors())
+export const app = express()
+app.use(cors({ optionsSuccessStatus: 200 }))
 app.use(express.json())
 let acceptingAdmissions = true
-const adminPage = path.join(findProjectRoot(path.dirname(fileURLToPath(import.meta.url))), 'admin', 'moderation.html')
 
 function rejectWhenDraining(res: Response) {
   if (acceptingAdmissions) return false
@@ -34,8 +34,10 @@ function rejectWhenDraining(res: Response) {
   return true
 }
 
-const httpServer = createServer(app)
-const gameServer = new Server({
+export const httpServer = createServer(app)
+const distributedMatchmaking = process.env.DRAW_DUO_FUNCTION === '1' && Boolean(process.env.DATABASE_URL)
+export const gameServer = new Server({
+  ...(distributedMatchmaking ? { driver: new PostgresDriver(), presence: new PostgresPresence() } : {}),
   transport: new WebSocketTransport({ server: httpServer }),
 })
 
@@ -63,7 +65,11 @@ app.get('/api/version', (_req, res) => {
 })
 
 app.get('/admin/moderation', (_req, res) => {
-  res.sendFile(adminPage)
+  try {
+    res.sendFile(path.join(findProjectRoot(path.dirname(fileURLToPath(import.meta.url))), 'admin', 'moderation.html'))
+  } catch {
+    res.status(404).end()
+  }
 })
 
 app.post('/api/lobby/private/create', async (req, res) => {
@@ -77,9 +83,9 @@ app.post('/api/lobby/private/create', async (req, res) => {
     } catch {
       if (process.env.NODE_ENV !== 'development' && process.env.DRAW_DUO_TEST_MODE !== '1') throw new Error('authentication_required')
     }
-    const code = registerPrivateRoom(room.roomId, ownerPlayerId)
+    const code = await registerPrivateRoom(room.roomId, ownerPlayerId)
     res.json({ roomId: room.roomId, roomCode: code.roomCode, status: 'created' })
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'failed_to_create' })
   }
 })
@@ -87,13 +93,13 @@ app.post('/api/lobby/private/create', async (req, res) => {
 app.post('/api/lobby/private/join', async (req, res) => {
   if (rejectWhenDraining(res)) return
   const code = String(req.body?.code ?? '')
-  const roomId = resolveCode(code)
+  const roomId = await resolveCode(code)
   if (!roomId) {
     res.status(404).json({ error: 'invalid_or_expired_code' })
     return
   }
   try {
-    const ownerPlayerId = getInviteOwner(code)
+    const ownerPlayerId = await getInviteOwner(code)
     if (ownerPlayerId) {
       const identity = await authenticateRequest(req)
       const joiner = await getAccountStore().ensurePlayer(identity.subject, identity.displayName)
@@ -103,8 +109,9 @@ app.post('/api/lobby/private/join', async (req, res) => {
       }
     }
     const roomInstance = getRoom(roomId)
-    const codeFromRoom = getCodeByRoom(roomId)
-    if ((roomInstance?.clients?.length ?? 0) >= 2) {
+    const listing = (await matchMaker.query({ roomId }))[0]
+    const codeFromRoom = await getCodeByRoom(roomId)
+    if ((roomInstance?.clients?.length ?? listing?.clients ?? 0) >= 2) {
       res.status(409).json({ error: 'room_full' })
       return
     }
@@ -367,6 +374,8 @@ app.get('/api/test/state/:roomId', (req, res) => {
   res.json(state ?? { error: 'unavailable' })
 })
 
-httpServer.listen(port, '0.0.0.0', () => {
-  console.log(`[draw-duo-server] listening on ${port}`)
-})
+if (process.env.DRAW_DUO_FUNCTION !== '1') {
+  httpServer.listen(port, '0.0.0.0', () => {
+    console.log(`[draw-duo-server] listening on ${port}`)
+  })
+}

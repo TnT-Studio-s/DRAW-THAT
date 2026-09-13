@@ -1,5 +1,6 @@
-import { Pool, type PoolClient } from 'pg'
+import { type Pool, type PoolClient } from 'pg'
 import { COSMETIC_CATALOG, STARTER_COSMETIC_IDS, cosmeticSupportsSlot, defaultCosmeticSlot, type CosmeticCatalogItem, type CosmeticEquipSlot } from '@drawduo/protocol'
+import { getDatabasePool } from './Database.js'
 
 export type AccountProfile = {
   playerId: string
@@ -315,7 +316,7 @@ class PostgresAccountStore implements AccountStore {
       const wallets = await client.query<{ player_id: string; balance: number }>(`SELECT player_id, balance FROM wallets WHERE player_id = ANY($1::uuid[])`, [ids])
       if (amount) {
         for (const wallet of wallets.rows) {
-          await client.query(`INSERT INTO wallet_ledger (player_id, delta, reason, turn_id, idempotency_key, balance_after) VALUES ($1, $2, 'turn_reward', $3, $4, $5) ON CONFLICT (idempotency_key) DO NOTHING`, [wallet.player_id, amount, input.turnId, `${input.resolutionId}:${wallet.player_id}`, wallet.balance])
+          await client.query(`INSERT INTO wallet_ledger (player_id, delta, reason, turn_id, idempotency_key, balance_after) VALUES ($1, $2, 'turn_reward', $3, $4, $5) ON CONFLICT (player_id, idempotency_key) DO NOTHING`, [wallet.player_id, amount, input.turnId, `${input.resolutionId}:${wallet.player_id}`, wallet.balance])
         }
       }
       const walletA = wallets.rows.find((row) => row.player_id === input.playerA)?.balance ?? 0
@@ -332,7 +333,9 @@ class PostgresAccountStore implements AccountStore {
 let store: AccountStore | undefined
 export function getAccountStore(): AccountStore {
   if (store) return store
-  if (process.env.DATABASE_URL) store = new PostgresAccountStore(new Pool({ connectionString: process.env.DATABASE_URL }))
+  if (process.env.DATABASE_URL) {
+    store = new PostgresAccountStore(getDatabasePool())
+  }
   else if (process.env.DRAW_DUO_TEST_MODE === '1' || process.env.NODE_ENV === 'development') store = new MemoryAccountStore()
   else throw new Error('database_required_outside_development')
   return store

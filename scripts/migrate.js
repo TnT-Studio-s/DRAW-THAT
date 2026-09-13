@@ -4,7 +4,7 @@ import { readdir } from 'node:fs/promises'
 import process from 'node:process'
 import { Pool } from 'pg'
 
-const databaseUrl = process.env.DATABASE_URL
+const databaseUrl = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL
 if (!databaseUrl) {
   console.error('[db] DATABASE_URL is required; no migration was run.')
   process.exit(2)

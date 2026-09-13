@@ -6,6 +6,7 @@ import type { PromptEntry } from '../rooms/types.js'
 import { normalizeAnswerText } from '@drawduo/rules'
 import { randomInt, randomUUID } from 'node:crypto'
 import { findProjectRoot } from './ProjectPaths.js'
+import publishedBundle from '../../../../content/published/prompts.json' with { type: 'json' }
 
 interface PromptFile {
   prompts: PromptEntry[]
@@ -18,13 +19,16 @@ export class PromptProvider {
   private readonly usedPromptIds = new Set<string>()
 
   constructor() {
-    const sourceRoot = findProjectRoot(path.dirname(fileURLToPath(import.meta.url)))
+    const useBundledPrompts = process.env.DRAW_DUO_FUNCTION === '1' && !process.env.DRAW_DUO_CONTENT_BUNDLE
+    const sourceRoot = useBundledPrompts ? '' : findProjectRoot(path.dirname(fileURLToPath(import.meta.url)))
     const seedFile = path.join(sourceRoot, 'docs/reference/seed-prompts.json')
     const publishedFile = process.env.DRAW_DUO_CONTENT_BUNDLE ? path.resolve(process.env.DRAW_DUO_CONTENT_BUNDLE) : path.join(sourceRoot, 'content/published/prompts.json')
     const developmentMode = process.env.NODE_ENV === 'development' || process.env.DRAW_DUO_TEST_MODE === '1'
     const promptFile = developmentMode && !process.env.DRAW_DUO_CONTENT_BUNDLE ? seedFile : publishedFile
-    const raw = fs.readFileSync(promptFile, 'utf-8')
-    const parsed = JSON.parse(raw) as PromptFile
+    const raw = useBundledPrompts
+      ? publishedBundle
+      : JSON.parse(fs.readFileSync(promptFile, 'utf-8')) as PromptFile
+    const parsed = raw as PromptFile
     const normalized = parsed.prompts.map((entry) => ({
       ...entry,
       canonicalAnswer: normalizeAnswerText(entry.canonicalAnswer),
