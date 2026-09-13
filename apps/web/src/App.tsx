@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent, type ReactNode, type RefObject } from 'react'
 import { Client, Room } from 'colyseus.js'
+import { App as CapacitorApp } from '@capacitor/app'
 import {
   type ServerMessage,
   type ServerMessageDrawEvent,
@@ -76,16 +77,19 @@ function catalogTypeLabel(type: CatalogItem['type']) {
   return 'Nameplate borders'
 }
 
-function createPreviewSession(): SessionPublicState {
+type PreviewRole = 'drawer' | 'guesser'
+
+function createPreviewSession(localRole: PreviewRole = 'drawer'): SessionPublicState {
+  const partnerRole: PreviewRole = localRole === 'drawer' ? 'guesser' : 'drawer'
   return {
     roomCode: 'PREVIEW', phase: 'DRAWING', sessionId: 'preview-session', turnsPerSession: 8, turnIndex: 0,
     teamScore: 12, solvedTurns: 2, sessionCoinsPerPlayer: 6, duoStreakCurrent: 2, duoStreakBest: 4,
     playerStates: [
-      { sessionId: 'preview-local', userId: 'preview-local', role: 'drawer', wallet: 48, connected: true, ready: true, rematch: false, displayName: 'You', appearance: { draw_color: 'color-blue', brush_size: 'brush-medium', name_font: 'font-plain', nameplate_border: 'border-plain' } },
-      { sessionId: 'preview-partner', userId: 'preview-partner', role: 'guesser', wallet: null, connected: true, ready: true, rematch: false, displayName: 'Sunny Scribbler', appearance: { name_color: 'color-purple', name_font: 'font-bubble', nameplate_border: 'border-sunshine' } },
+      { sessionId: 'preview-local', userId: 'preview-local', role: localRole, wallet: 48, connected: true, ready: true, rematch: false, displayName: 'You', appearance: { draw_color: 'color-blue', brush_size: 'brush-medium', name_font: 'font-plain', nameplate_border: 'border-plain' } },
+      { sessionId: 'preview-partner', userId: 'preview-partner', role: partnerRole, wallet: null, connected: true, ready: true, rematch: false, displayName: 'Sunny Scribbler', appearance: { name_color: 'color-purple', name_font: 'font-bubble', nameplate_border: 'border-sunshine' } },
     ],
     activeTurn: {
-      turnId: 'preview-turn', turnIndex: 0, phase: 'DRAWING', drawerSessionId: 'preview-local', selectedDifficulty: 2,
+      turnId: 'preview-turn', turnIndex: 0, phase: 'DRAWING', drawerSessionId: localRole === 'drawer' ? 'preview-local' : 'preview-partner', selectedDifficulty: 2,
       selectedPromptLength: 3, slotPattern: [3], slotCount: 3, remainingMs: 47_000, revealedAnswer: null,
       outcome: null, resolutionId: null, boardGeneration: 0,
       board: [{ id: 'preview-s', letter: 'S', used: false }, { id: 'preview-u', letter: 'U', used: false }, { id: 'preview-n', letter: 'N', used: false }],
@@ -276,6 +280,7 @@ function App() {
   const [reducedMotion, setReducedMotion] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [previewGame, setPreviewGame] = useState(false)
+  const [previewRole, setPreviewRole] = useState<PreviewRole>('drawer')
   const [drawColor, setDrawColor] = useState('#1a73ff')
   const [drawWidth, setDrawWidth] = useState(12)
   const [drawTool, setDrawTool] = useState<'draw' | 'erase'>('draw')
@@ -312,6 +317,79 @@ function App() {
   const pointerIdRef = useRef<number | null>(null)
   const pointsRef = useRef<StrokePoint[]>([])
   const strokeHistoryRef = useRef<Stroke[]>([])
+  const sessionRef = useRef<SessionPublicState | null>(null)
+  const nativeBackStateRef = useRef({
+    connected,
+    editingProfile,
+    modal,
+    previewGame,
+    sessionActive: Boolean(session),
+    showGuide,
+    showSettings,
+    showShop,
+  })
+  nativeBackStateRef.current = {
+    connected,
+    editingProfile,
+    modal,
+    previewGame,
+    sessionActive: Boolean(session),
+    showGuide,
+    showSettings,
+    showShop,
+  }
+
+  useEffect(() => {
+    if (runtimeConfig.platformId !== 'android') {
+      return
+    }
+
+    let disposed = false
+    let removeListener: (() => Promise<void>) | undefined
+
+    void CapacitorApp.addListener('backButton', () => {
+      const state = nativeBackStateRef.current
+
+      if (state.modal) {
+        setModal(null)
+        return
+      }
+      if (state.showShop) {
+        setShowShop(false)
+        return
+      }
+      if (state.showSettings) {
+        setShowSettings(false)
+        return
+      }
+      if (state.editingProfile) {
+        setEditingProfile(false)
+        return
+      }
+      if (state.showGuide) {
+        setShowGuide(false)
+        return
+      }
+      if (state.connected || state.previewGame || state.sessionActive) {
+        return
+      }
+
+      void CapacitorApp.exitApp()
+    }).then((listener) => {
+      if (disposed) {
+        void listener.remove()
+        return
+      }
+      removeListener = () => listener.remove()
+    })
+
+    return () => {
+      disposed = true
+      if (removeListener) {
+        void removeListener()
+      }
+    }
+  }, [])
   const boardGenerationRef = useRef(0)
   const drawStateRef = useRef({
     color: '#1a73ff',
@@ -526,7 +604,8 @@ function App() {
   }, [drawPath, resetCanvas])
 
   const applyRemoteEvent = useCallback((event: DrawEvent) => {
-    if (!session || !session.activeTurn || event.turnId !== session.activeTurn.turnId) {
+    const activeTurn = sessionRef.current?.activeTurn
+    if (!activeTurn || event.turnId !== activeTurn.turnId) {
       return
     }
     if (event.generation < boardGenerationRef.current) {
@@ -561,7 +640,7 @@ function App() {
       })
       drawPath(event.points, event.color, event.width, event.tool)
     }
-  }, [drawPath, resetCanvas, rerenderFromHistory, session])
+  }, [drawPath, resetCanvas, rerenderFromHistory])
 
   const sendMessage = useCallback((payload: unknown) => {
     const room = roomRef.current
@@ -576,7 +655,7 @@ function App() {
       return
     }
     const batchSize = 64
-    const generation = session.activeTurn.boardGeneration
+    const generation = boardGenerationRef.current
     for (let i = 0; i < points.length; i += batchSize) {
       const chunk = points.slice(i, i + batchSize)
       if (chunk.length < 2) {
@@ -617,7 +696,7 @@ function App() {
       turnId: session.activeTurn.turnId,
       actionId: crypto.randomUUID(),
       connectionEpoch: connectionEpochRef.current,
-      generation: session.activeTurn.boardGeneration,
+      generation: boardGenerationRef.current,
     })
   }, [connected, isDrawer, sendMessage, session])
 
@@ -635,7 +714,7 @@ function App() {
       turnId: session.activeTurn.turnId,
       actionId: crypto.randomUUID(),
       connectionEpoch: connectionEpochRef.current,
-      generation: session.activeTurn.boardGeneration,
+      generation: boardGenerationRef.current,
     })
   }, [connected, isDrawer, previewGame, resetCanvas, sendMessage, session])
 
@@ -793,6 +872,7 @@ function App() {
     setSession(null)
     setConnected(false)
     setPreviewGame(false)
+    setPreviewRole('drawer')
     setStatus('Left session')
     setChoices([])
     setSelectedPrompt(null)
@@ -800,6 +880,11 @@ function App() {
     setSlotPattern([])
     setSelectedTileIds([])
   }, [])
+
+  const cancelInvite = useCallback(() => {
+    leaveRoom()
+    setStatus('Invite canceled')
+  }, [leaveRoom])
 
   const setBoardFromSession = useCallback((next: SessionPublicState | null) => {
     if (!next?.activeTurn) {
@@ -843,6 +928,7 @@ function App() {
       leaveRoom()
       return
     }
+    sessionRef.current = next
     setSession((current) => {
       if (!current || current.activeTurn?.turnId !== next.activeTurn?.turnId) {
         setSelectedTileIds([])
@@ -1056,8 +1142,8 @@ function App() {
     }
   }, [callApi, previewGame])
 
-  const openPreviewGame = useCallback(() => {
-    const next = createPreviewSession()
+  const openPreviewGame = useCallback((role: PreviewRole = 'drawer') => {
+    const next = createPreviewSession(role)
     stateReceivedAtRef.current = Date.now()
     setPreviewGame(true)
     setConnected(true)
@@ -1065,7 +1151,8 @@ function App() {
     setError(null)
     setShowSettings(false)
     setShowShop(false)
-    setSelectedPrompt('SUN')
+    setPreviewRole(role)
+    setSelectedPrompt(role === 'drawer' ? 'SUN' : null)
     setDrawBank(next.activeTurn?.board ?? [])
     setSlotPattern(next.activeTurn?.slotPattern ?? [])
     setSelectedTileIds([])
@@ -1074,6 +1161,27 @@ function App() {
     setSession(next)
     window.setTimeout(() => resetCanvas(), 0)
   }, [resetCanvas])
+
+  const switchPreviewPerspective = useCallback(() => {
+    if (!previewGame) return
+    const nextRole: PreviewRole = previewRole === 'drawer' ? 'guesser' : 'drawer'
+    setPreviewRole(nextRole)
+    setSelectedPrompt(nextRole === 'drawer' ? 'SUN' : null)
+    setSelectedTileIds([])
+    setGuessFeedback(null)
+    setSession((current) => current ? {
+      ...current,
+      playerStates: current.playerStates.map((player, index) => ({
+        ...player,
+        role: index === 0 ? nextRole : nextRole === 'drawer' ? 'guesser' : 'drawer',
+      })),
+      activeTurn: current.activeTurn ? {
+        ...current.activeTurn,
+        drawerSessionId: nextRole === 'drawer' ? 'preview-local' : 'preview-partner',
+      } : null,
+    } : current)
+    setStatus(`Preview: ${nextRole === 'drawer' ? 'Drawer' : 'Guesser'}`)
+  }, [previewGame, previewRole])
 
   const saveProfile = useCallback(async () => {
     try {
@@ -1533,7 +1641,8 @@ function App() {
           <div className="primary-actions">
             <button onClick={startQuick} data-testid="quick-join">Quick Partner</button>
             <button onClick={createPrivateRoom} data-testid="create-private">Create Invite</button>
-            <button className="preview-button" onClick={openPreviewGame}>Preview Game Screen</button>
+            <button className="preview-button" onClick={() => openPreviewGame()}>Preview Game Screen</button>
+            <button className="preview-button" onClick={() => openPreviewGame('guesser')}>Preview as Guesser</button>
           </div>
           <div className="invite-entry">
             <input
@@ -1563,6 +1672,7 @@ function App() {
               </div>
               <div className="hud-actions">
                 <button className="store-button" onClick={openShop} disabled={!profile && !previewGame} aria-label="Open reward store"><StoreIcon /></button>
+                {previewGame && <button className="preview-switch-button" onClick={switchPreviewPerspective}>{isDrawer ? 'View Guesser' : 'View Drawer'}</button>}
                 <button className="settings-button" onClick={() => setShowSettings((value) => !value)} aria-label="Game settings" aria-expanded={showSettings}>
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14 12.94a7.5 7.5 0 0 0 .05-.94 7.5 7.5 0 0 0-.05-.94l2.03-1.58-1.92-3.32-2.39.96a7.1 7.1 0 0 0-1.62-.94L14.88 3h-3.84l-.36 3.18a7.1 7.1 0 0 0-1.62.94l-2.39-.96-1.92 3.32 2.03 1.58a7.5 7.5 0 0 0-.05.94c0 .32.02.63.05.94l-2.03 1.58 1.92 3.32 2.39-.96c.5.39 1.04.7 1.62.94l.36 3.18h3.84l.36-3.18a7.1 7.1 0 0 0 1.62-.94l2.39.96 1.92-3.32-2.03-1.58ZM12.96 15.2A3.2 3.2 0 1 1 12.96 8.8a3.2 3.2 0 0 1 0 6.4Z" /></svg>
                 </button>
@@ -1620,7 +1730,13 @@ function App() {
               )}
 
               {session?.phase === 'READY_CHECK' && <div className="stage-card"><h2>Ready to draw?</h2><p>Both players need to ready up.</p></div>}
-              {session?.phase === 'WAITING' && <div className="stage-card"><h2>Invite your partner</h2><p>Share the room code shown above.</p></div>}
+              {!previewGame && !partner && (
+                <div className="stage-card">
+                  <h2>Invite your partner</h2>
+                  <p>Share the room code shown above.</p>
+                  <button type="button" onClick={cancelInvite} data-testid="cancel-invite">Cancel Invite</button>
+                </div>
+              )}
               {session?.phase === 'SELECTING' && isDrawer && (
                 <div className="stage-card stage-card--choices">
                   <p className="eyebrow">Choose your word</p>

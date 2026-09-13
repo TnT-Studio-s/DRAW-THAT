@@ -367,6 +367,9 @@ app.get('/api/test/state/:roomId', (req, res) => {
   res.json(state ?? { error: 'unavailable' })
 })
 
-httpServer.listen(port, '0.0.0.0', () => {
+void gameServer.listen(port, '0.0.0.0').then(() => {
   console.log(`[draw-duo-server] listening on ${port}`)
+}).catch((error) => {
+  console.error('[draw-duo-server] failed to start', error)
+  process.exitCode = 1
 })

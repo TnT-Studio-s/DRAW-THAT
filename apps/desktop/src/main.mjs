@@ -39,6 +39,11 @@ function backendConnectSources() {
   return [...sources].join(' ')
 }
 
+function contentSecurityPolicy() {
+  const scriptSources = isDevelopment ? "'self' 'unsafe-inline'" : "'self'"
+  return `default-src 'self'; connect-src ${backendConnectSources()}; style-src 'self' 'unsafe-inline'; script-src ${scriptSources}`
+}
+
 function isAllowedNavigation(url) {
   return isDevelopment
     ? url.startsWith('http://127.0.0.1:5173') || url.startsWith('http://localhost:5173')
@@ -53,7 +58,7 @@ function createWindow() {
     minHeight: 640,
     backgroundColor: '#f6f0e7',
     webPreferences: {
-      preload: path.join(__dirname, 'preload.mjs'),
+      preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
@@ -78,7 +83,7 @@ function createWindow() {
 app.whenReady().then(() => {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     if (details.resourceType === 'mainFrame' || details.resourceType === 'subFrame') {
-      callback({ responseHeaders: { ...details.responseHeaders, 'Content-Security-Policy': [`default-src 'self'; connect-src ${backendConnectSources()}; style-src 'self' 'unsafe-inline'; script-src 'self'`] } })
+      callback({ responseHeaders: { ...details.responseHeaders, 'Content-Security-Policy': [contentSecurityPolicy()] } })
       return
     }
     callback({})

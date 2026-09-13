@@ -1,5 +1,11 @@
 # Implementation status
 
+## Mixed-platform checkpoint - 2026-09-12
+
+Private Android-to-Windows invite creation and joining are physically confirmed. A stale React session closure that discarded remote `drawEvent` messages was repaired, and `tests/e2e/live-drawing.spec.ts` now passes through first-direction drawing, a failed turn, role alternation, and reverse-direction drawing with remote canvas pixel assertions.
+
+The installed Samsung S25 Ultra exposed a separate Android lifecycle blocker: an edge-swipe drawing gesture was handled as predictive Back and finished the single activity without a Java/WebView crash. Two bounded native interception attempts compiled but failed the same active-room ADB acceptance check, so they were removed. This item is isolated in `REVIEW_PACKET.md`; full packaged mixed-platform acceptance remains `IN_PROGRESS`, not verified.
+
 Plan version: 2.0, September 9, 2026.
 
 Phase 1 implementation is complete for the headless web/server playable outcome. Native Windows/Android/iOS packaging and device gates remain outside this phase.
