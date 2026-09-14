@@ -842,6 +842,7 @@ h1 {
   display: grid;
   gap: 0.1rem;
   min-height: 3.2rem;
+  place-items: center;
   background: linear-gradient(180deg, #ff9e43, #ff6636);
   box-shadow: 0 4px 0 #c33c20;
 }
@@ -856,12 +857,16 @@ h1 {
   box-shadow: 0 4px 0 #9e1f41;
 }
 
-.choice-grid span {
-  font-size: 1rem;
+.choice-grid .choice-stars {
+  color: #fff6b0;
+  font-size: 1.05rem;
+  letter-spacing: 0.08em;
+  text-shadow: 0 1px 0 rgb(104 54 16 / 45%);
 }
 
-.choice-grid small {
-  opacity: 0.85;
+.choice-grid .choice-word {
+  font-size: 1.1rem;
+  line-height: 1.1;
 }
 
 .result-burst {

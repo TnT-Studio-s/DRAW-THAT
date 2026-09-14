@@ -29,6 +29,7 @@ type DrawEvent = ServerMessageDrawEvent
 type TurnChoice = {
   id: string
   difficulty: 1 | 2 | 3
+  answer: string
 }
 
 type AppState = {
@@ -957,6 +958,7 @@ function App() {
         setChoices(parsed.choices.map((choice) => ({
           id: choice.id,
           difficulty: choice.difficulty,
+          answer: choice.answer,
         })))
       }
     })
@@ -1743,9 +1745,9 @@ function App() {
                   <div className="choice-grid">
                     {choices.length === 0 && <p>Loading choices...</p>}
                     {choices.map((choice) => (
-                      <button key={choice.id} onClick={() => selectChoice(choice.id)} data-testid={`choice-${choice.difficulty}`}>
-                        <span>{difficultyLabel(choice.difficulty)}</span>
-                        <small>{choice.difficulty === 1 ? 'Quick draw' : choice.difficulty === 2 ? 'Bigger reward' : 'Big challenge'}</small>
+                      <button key={choice.id} onClick={() => selectChoice(choice.id)} data-testid={`choice-${choice.difficulty}`} aria-label={`Choose ${choice.answer}, ${difficultyLabel(choice.difficulty)} difficulty`}>
+                        <span className="choice-stars" aria-hidden="true">{'★'.repeat(choice.difficulty)}</span>
+                        <strong className="choice-word">{choice.answer}</strong>
                       </button>
                     ))}
                   </div>

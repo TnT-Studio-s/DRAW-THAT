@@ -239,7 +239,7 @@ export class DrawDuoRoom extends Room {
     const privateChoices = {
       type: 'privateChoices' as const,
       turnId: this.turn.id,
-      choices: choices.map((choice) => ({ id: choice.id, difficulty: choice.difficulty, promptHint: choice.hint })),
+      choices: choices.map((choice) => ({ id: choice.id, difficulty: choice.difficulty, answer: choice.answer, promptHint: choice.hint })),
     }
     this.clients.find((client) => client.sessionId === drawer.sessionId)?.send('privateChoices', privateChoices)
   }

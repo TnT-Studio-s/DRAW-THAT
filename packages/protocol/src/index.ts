@@ -144,6 +144,7 @@ export interface ServerMessagePrivateChoices {
   choices: Array<{
     id: string
     difficulty: Difficulty
+    answer: string
     promptHint: string
   }>
 }
